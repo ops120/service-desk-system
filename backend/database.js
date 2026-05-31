@@ -31,7 +31,7 @@ const captchaStore = new Map();
 
 // 生成验证码
 function createCaptcha() {
-  const captcha = svgCaptcha.create({ mathMinLength: 2, mathMaxLength: 3, fontSize: 48, width: 120, height: 40 });
+  const captcha = svgCaptcha.createMathExpr({ fontSize: 48, width: 120, height: 40 });
   const key = Math.random().toString(36).substring(2, 10);
   captchaStore.set(key, { answer: captcha.text, expires: Date.now() + 5 * 60 * 1000 });
   return { key, data: captcha.data };
