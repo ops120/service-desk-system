@@ -111,8 +111,11 @@ app.post('/api/auth/register', registerLimiter, (req, res) => {
     if (!phone) {
       return res.status(400).json({ error: '请填写手机号' });
     }
-    // 业主必须填写房号，物业不需要
-    if (role === 'owner' && !unit_number) {
+    // 角色只能是业主或物业，禁止注册为管理员
+    const validRole = role === 'manager' ? 'manager' : 'owner';
+
+    // 业主必须填写房号
+    if (validRole === 'owner' && !unit_number) {
       return res.status(400).json({ error: '请填写房号' });
     }
     if (username.length < 2 || password.length < 6) {
@@ -125,7 +128,7 @@ app.post('/api/auth/register', registerLimiter, (req, res) => {
     }
 
     // 物业必须提供员工编号
-    if (role === 'manager' && !employee_id) {
+    if (validRole === 'manager' && !employee_id) {
       return res.status(400).json({ error: '物业员工需提供员工编号' });
     }
 
@@ -135,7 +138,7 @@ app.post('/api/auth/register', registerLimiter, (req, res) => {
     const result = queries.insertUser({
       username,
       password: password, // 明文传，由 database.js 哈希
-      role: 'owner', // 注册强制为业主，禁止指定其他角色
+      role: validRole,
       unit_number,
       phone,
       employee_id: employee_id || '',
@@ -143,8 +146,8 @@ app.post('/api/auth/register', registerLimiter, (req, res) => {
       employee_certificate: employee_certificate || ''
     });
 
-    res.status(201).json({ message: '注册成功，请等待管理员审核', user: { id: result.lastInsertRowid, username, role: 'owner', unit_number } });
-    audit('USER_REGISTER', username, { role, unit_number, phone: phone ? '***' : '' }, req.ip);
+    res.status(201).json({ message: '注册成功，请等待管理员审核', user: { id: result.lastInsertRowid, username, role: validRole, unit_number: unit_number || '' } });
+    audit('USER_REGISTER', username, { role: validRole, unit_number, phone: phone ? '***' : '' }, req.ip);
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ error: '服务器错误' });
