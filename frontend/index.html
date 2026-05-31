@@ -9,7 +9,7 @@
 <body>
   <div class="login-page">
     <div class="login-header">
-      <h1>🏢 通用报修系统</h1>
+      <h1>🏢 <span data-system-name>通用报修系统</span></h1>
       <p>快速报修 · 实时查询 · 便捷确认</p>
     </div>
 
@@ -54,7 +54,8 @@
     </div>
   </div>
 
-  <script src="js/app.js"></script>
+  <script src="js/app.js?v=2"></script>
+  <script>loadSystemName();</script>
   <script>
     let captchaKey = '';
 

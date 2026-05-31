@@ -142,6 +142,20 @@ function renderBottomNav(role) {
     '</nav>';
 }
 
+// 加载并应用系统名称
+async function loadSystemName() {
+  try {
+    const res = await fetch(API_BASE + '/system-name');
+    if (res.ok) {
+      const d = await res.json();
+      document.title = d.system_name + ' - ' + document.title.split(' - ').pop();
+      document.querySelectorAll('[data-system-name]').forEach(el => {
+        el.textContent = d.system_name;
+      });
+    }
+  } catch (e) {}
+}
+
 // 业主相关API
 const OwnerAPI = {
   async createRepair(data) {
@@ -215,3 +229,4 @@ window.OwnerAPI = OwnerAPI;
 window.ManagerAPI = ManagerAPI;
 window.checkAuth = checkAuth;
 window.renderBottomNav = renderBottomNav;
+window.loadSystemName = loadSystemName;

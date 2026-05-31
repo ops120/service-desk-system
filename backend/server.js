@@ -360,8 +360,13 @@ app.get('/api/admin/stats', authenticate, requireAdmin, (req, res) => {
   }
 });
 
-// 获取系统名称
-app.get('/api/admin/system-name', authenticate, requireAdmin, (req, res) => {
+// 获取系统名称（公开，无需登录）
+app.get('/api/system-name', (req, res) => {
+  res.json({ system_name: queries.getSystemName() });
+});
+
+// 获取系统名称（旧路径，保留兼容）
+app.get('/api/admin/system-name', (req, res) => {
   res.json({ system_name: queries.getSystemName() });
 });
 

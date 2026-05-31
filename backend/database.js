@@ -515,7 +515,7 @@ const queries = {
   },
 
   setSystemName(name) {
-    db.run("INSERT OR REPLACE INTO system_config (key, value) VALUES ('system_name', ?)", [name]);
+    db.run("UPDATE system_config SET value = ? WHERE key = 'system_name'", [name]);
     saveDB();
   },
 
