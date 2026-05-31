@@ -100,6 +100,9 @@ A: 删除 `backend/repair.db` 重启，或通过数据库重置密码哈希。
 **Q: 如何查看审计日志？**
 A: 管理员登录后访问 `/api/admin/audit?limit=100`，或直接查看 `backend/logs/audit.log`。
 
+**Q: 服务启动时显示"检测到 xxx 表缺少 AUTOINCREMENT，正在重建"？**
+A: 这是正常的安全修复——系统自动检测旧数据库 schema 是否缺少自增主键支持，并自动迁移数据，一般发生在首次使用新版本时。
+
 ---
 
 ## 技术栈

@@ -134,7 +134,7 @@ app.post('/api/auth/register', registerLimiter, (req, res) => {
 
     const result = queries.insertUser({
       username,
-      password: hashPassword(password),
+      password: password, // 明文传，由 database.js 哈希
       role: 'owner', // 注册强制为业主，禁止指定其他角色
       unit_number,
       phone,

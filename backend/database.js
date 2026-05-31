@@ -134,7 +134,7 @@ async function initDB() {
     console.log('[DB] 新建 SQLite 数据库');
   }
 
-  // 创建表
+  // 创建表（IF NOT EXISTS 不会修复已有损坏的表，需单独检查并重建）
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -151,8 +151,57 @@ async function initDB() {
     )
   `);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS repair_orders (
+  // 通用表修复函数：检测并重建缺少 AUTOINCREMENT 的表
+  // 策略：用测试插入来检测——如果插入后 id 为 null，说明缺少 AUTOINCREMENT
+  function fixTableIfNeeded(tableName, createSQL, testColumns) {
+    if (!testColumns || testColumns.length === 0) return;
+    // 构造最小测试插入（前几列），id 列传 null 期待自增
+    const placeholders = testColumns.map(() => '?').join(',');
+    const colNames = testColumns.join(',');
+    const testValues = testColumns.map(() => null); // id=null, 其他列=null
+    try {
+      db.run('INSERT INTO ' + tableName + ' (' + colNames + ') VALUES (' + placeholders + ')', testValues);
+      const lid = db.exec('SELECT last_insert_rowid()')[0].values[0][0];
+      db.run('DELETE FROM ' + tableName + ' WHERE id = ?', [lid]); // 回滚测试
+      if (lid === null) throw new Error('AUTOINCREMENT broken');
+      return; // 自增正常，无需修复
+    } catch (e) {
+      // id 为 null 说明表缺少 AUTOINCREMENT，需要重建
+    }
+    console.log('[DB] 检测到 ' + tableName + ' 表缺少 AUTOINCREMENT，正在重建...');
+    const backup = db.exec('SELECT * FROM ' + tableName);
+    const columns = backup.length > 0 ? backup[0].columns : [];
+    const rows = backup.length > 0 ? backup[0].values : [];
+    db.run('DROP TABLE ' + tableName);
+    db.run(createSQL);
+    const validRows = rows.filter(r => r[0] !== null);
+    if (columns.length > 0 && validRows.length > 0) {
+      const insPlaceholders = validRows.map(() => '(' + columns.map(() => '?').join(',') + ')').join(',');
+      const colNames2 = columns.join(',');
+      const allValues = validRows.flat();
+      db.run('INSERT INTO ' + tableName + ' (' + colNames2 + ') VALUES ' + insPlaceholders, allValues);
+    }
+    console.log('[DB] ' + tableName + ' 表已修复，共恢复', validRows.length, '条有效记录');
+  }
+
+  // 检查并修复各表 schema
+  fixTableIfNeeded('users', `
+    CREATE TABLE users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('owner','manager','admin')),
+      unit_number TEXT,
+      phone TEXT,
+      employee_id TEXT DEFAULT '',
+      property_certificate TEXT DEFAULT '',
+      employee_certificate TEXT DEFAULT '',
+      status TEXT DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `, ['id', 'username', 'password', 'role', 'status']);
+  fixTableIfNeeded('repair_orders', `
+    CREATE TABLE repair_orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       owner_id INTEGER NOT NULL,
       unit_number TEXT NOT NULL,
@@ -163,10 +212,9 @@ async function initDB() {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (owner_id) REFERENCES users(id)
     )
-  `);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS photos (
+  `, ['id', 'owner_id', 'unit_number', 'fault_location', 'status']);
+  fixTableIfNeeded('photos', `
+    CREATE TABLE photos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       repair_order_id INTEGER NOT NULL,
       photo_type TEXT NOT NULL CHECK(photo_type IN ('fault','completion')),
@@ -174,10 +222,9 @@ async function initDB() {
       uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (repair_order_id) REFERENCES repair_orders(id)
     )
-  `);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS status_history (
+  `, ['id', 'repair_order_id', 'photo_type', 'file_path']);
+  fixTableIfNeeded('status_history', `
+    CREATE TABLE status_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       repair_order_id INTEGER NOT NULL,
       status TEXT NOT NULL,
@@ -187,7 +234,7 @@ async function initDB() {
       FOREIGN KEY (repair_order_id) REFERENCES repair_orders(id),
       FOREIGN KEY (operator_id) REFERENCES users(id)
     )
-  `);
+  `, ['id', 'repair_order_id', 'status', 'note']);
 
   db.run(`
     CREATE TABLE IF NOT EXISTS system_config (
@@ -263,17 +310,15 @@ const queries = {
   // ===== 用户 =====
   insertUser(params) {
     const hash = hashPassword(params.password || params.phone || '123456');
-    db.run(`
+    // 先用 db.exec 执行 INSERT（sql.js 对 db.run 的 last_insert_rowid 支持不稳定）
+    db.exec(`
       INSERT INTO users (username, password, role, unit_number, phone, employee_id, property_certificate, employee_certificate, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-    `, [
-      params.username, hash, params.role || 'owner',
-      params.unit_number || '', params.phone || '',
-      params.employee_id || '', params.property_certificate || '',
-      params.employee_certificate || ''
-    ]);
+      VALUES ('${params.username}', '${hash}', '${params.role || 'owner'}', '${params.unit_number || ''}', '${params.phone || ''}', '${params.employee_id || ''}', '${params.property_certificate || ''}', '${params.employee_certificate || ''}', 'pending')
+    `);
+    const result = db.exec('SELECT last_insert_rowid() as id');
+    const lastId = result.length > 0 && result[0].values.length > 0 ? result[0].values[0][0] : null;
     saveDB();
-    const lastId = db.exec('SELECT last_insert_rowid()')[0].values[0][0];
+    console.log('[DB] insertUser -> lastId:', lastId, 'username:', params.username);
     return { lastInsertRowid: lastId };
   },
 
