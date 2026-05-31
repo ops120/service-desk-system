@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>业主首页 - 通用报修系统</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="header">
+    <h1>🏠 业主首页</h1>
+  </div>
+
+  <!-- ===== 用户信息 + 统计 ===== -->
+  <div style="padding: 12px 16px 0; max-width: 750px; margin: 0 auto;">
+    <!-- 用户信息 -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:10px;background:#fff;padding:10px 12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.1);">
+          <div style="width:40px;height:40px;background:#1890ff;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;">👤</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;font-size:14px;" id="userName">加载中...</div>
+            <div style="font-size:12px;color:#888;margin-top:1px;" id="userUnit">-</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <a href="change_password.html" style="color:#1890ff;font-size:12px;text-decoration:none;">改密</a>
+            <span onclick="showHelp()" style="color:#1890ff;font-size:16px;cursor:pointer;">❓</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 统计行 -->
+    <div class="owner-stats-row">
+      <div class="owner-stat-card" style="border-left-color:#fa8c16;">
+        <div class="owner-stat-num" style="color:#fa8c16;" id="statPending">0</div>
+        <div class="owner-stat-label">待处理</div>
+      </div>
+      <div class="owner-stat-card" style="border-left-color:#1890ff;">
+        <div class="owner-stat-num" style="color:#1890ff;" id="statProcessing">0</div>
+        <div class="owner-stat-label">处理中</div>
+      </div>
+      <div class="owner-stat-card" style="border-left-color:#52c41a;">
+        <div class="owner-stat-num" style="color:#52c41a;" id="statCompleted">0</div>
+        <div class="owner-stat-label">已完成</div>
+      </div>
+      <div class="owner-stat-card" style="border-left-color:#8bc34a;">
+        <div class="owner-stat-num" style="color:#8bc34a;" id="statConfirmed">0</div>
+        <div class="owner-stat-label">已确认</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 快捷操作 ===== -->
+  <div style="padding: 10px 16px; max-width: 750px; margin: 0 auto;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <a href="owner_repair.html" class="btn btn-primary" style="padding:12px;border-radius:8px;text-align:center;text-decoration:none;font-size:14px;font-weight:600;background:#1890ff;color:#fff;border:none;">
+        📝 提交报修
+      </a>
+      <a href="owner_list.html" class="btn" style="padding:12px;border-radius:8px;text-align:center;text-decoration:none;font-size:14px;font-weight:600;background:#fff;color:#333;border:1px solid #e8e8e8;">
+        📋 列表视图
+      </a>
+    </div>
+  </div>
+
+  <!-- ===== 个人看板（竖向） ===== -->
+  <div style="padding: 8px 16px 80px; max-width: 750px; margin: 0 auto; display:flex; flex-direction:column; gap:10px;">
+
+    <!-- 待处理 -->
+    <div class="owner-kanban-section" id="section-pending">
+      <div class="owner-kanban-sec-header" style="background:#fa8c16;cursor:pointer;" onclick="toggleOwnerCol('pending')">
+        <span>🕐 待处理</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="owner-kanban-count" id="owner-col-pending">0</span>
+          <span class="owner-sec-toggle" id="toggle-icon-pending">▼</span>
+        </div>
+      </div>
+      <div class="owner-kanban-sec-body" id="owner-col-pending-body"></div>
+    </div>
+
+    <!-- 处理中 -->
+    <div class="owner-kanban-section" id="section-processing">
+      <div class="owner-kanban-sec-header" style="background:#1890ff;cursor:pointer;" onclick="toggleOwnerCol('processing')">
+        <span>🔧 处理中</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="owner-kanban-count" id="owner-col-processing">0</span>
+          <span class="owner-sec-toggle" id="toggle-icon-processing">▼</span>
+        </div>
+      </div>
+      <div class="owner-kanban-sec-body" id="owner-col-processing-body"></div>
+    </div>
+
+    <!-- 已完成 -->
+    <div class="owner-kanban-section" id="section-completed">
+      <div class="owner-kanban-sec-header" style="background:#52c41a;cursor:pointer;" onclick="toggleOwnerCol('completed')">
+        <span>✅ 已完成</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="owner-kanban-count" id="owner-col-completed">0</span>
+          <span class="owner-sec-toggle" id="toggle-icon-completed">▼</span>
+        </div>
+      </div>
+      <div class="owner-kanban-sec-body owner-sec-collapsed" id="owner-col-completed-body"></div>
+    </div>
+
+    <!-- 已确认 -->
+    <div class="owner-kanban-section" id="section-confirmed">
+      <div class="owner-kanban-sec-header" style="background:#8bc34a;cursor:pointer;" onclick="toggleOwnerCol('confirmed')">
+        <span>✔️ 已确认</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="owner-kanban-count" id="owner-col-confirmed">0</span>
+          <span class="owner-sec-toggle" id="toggle-icon-confirmed">▼</span>
+        </div>
+      </div>
+      <div class="owner-kanban-sec-body owner-sec-collapsed" id="owner-col-confirmed-body"></div>
+    </div>
+
+  </div>
+
+  <!-- 帮助弹窗 -->
+  <div id="helpModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;overflow-y:auto;">
+    <div style="background:#fff;margin:20px;border-radius:12px;padding:20px;max-width:600px;margin:20px auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="margin:0;font-size:18px;color:#333;">👤 业主使用帮助</h2>
+        <span onclick="closeHelp()" style="font-size:24px;cursor:pointer;color:#999;">×</span>
+      </div>
+      <div style="font-size:14px;line-height:1.8;color:#666;">
+        <h3 style="font-size:15px;color:#1890ff;margin:12px 0 8px;">📝 提交报修</h3>
+        <ol style="margin:0;padding-left:20px;">
+          <li>点击「提交报修」</li>
+          <li>房号自动填充（可手动修改）</li>
+          <li>填写故障位置和描述</li>
+          <li>拍摄门牌号照片（必填）</li>
+          <li>提交成功后跳转列表</li>
+        </ol>
+        <h3 style="font-size:15px;color:#1890ff;margin:12px 0 8px;">✅ 确认完工 / ↩️ 打回重做</h3>
+        <ol style="margin:0;padding-left:20px;">
+          <li>物业上传完工照片后状态变为「已完成」</li>
+          <li>满意则点「确认完工」，不满意填写原因「打回重做」</li>
+        </ol>
+        <h3 style="font-size:15px;color:#ff4d4f;margin:12px 0 8px;">❌ 取消报修</h3>
+        <ol style="margin:0;padding-left:20px;">
+          <li>仅「待处理」「处理中」状态可取消</li>
+          <li>取消后无法恢复</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    checkAuth();
+    var currentUser = Utils.getUser();
+    if (currentUser) {
+      document.getElementById('userName').textContent = currentUser.name || currentUser.username;
+      document.getElementById('userUnit').textContent = '房号: ' + (currentUser.unit_number || '未设置');
+      loadStats();
+      loadKanban();
+    }
+
+    async function loadStats() {
+      try {
+        var repairs = await OwnerAPI.getMyRepairs();
+        var pending = repairs.filter(function(r){return r.status==='pending'}).length;
+        var processing = repairs.filter(function(r){return r.status==='processing'}).length;
+        var completed = repairs.filter(function(r){return r.status==='completed'}).length;
+        var confirmed = repairs.filter(function(r){return r.status==='confirmed'}).length;
+        document.getElementById('statPending').textContent = pending;
+        document.getElementById('statProcessing').textContent = processing;
+        document.getElementById('statCompleted').textContent = completed;
+        document.getElementById('statConfirmed').textContent = confirmed;
+      } catch(e) {}
+    }
+
+    async function loadKanban() {
+      try {
+        var repairs = await OwnerAPI.getMyRepairs();
+        var statuses = ['pending', 'processing', 'completed', 'confirmed'];
+        statuses.forEach(function(status) {
+          var filtered = repairs.filter(function(r){ return r.status === status; });
+          var countEl = document.getElementById('owner-col-' + status);
+          var bodyEl = document.getElementById('owner-col-' + status + '-body');
+          countEl.textContent = filtered.length;
+
+          if (filtered.length === 0) {
+            bodyEl.innerHTML = '<div class="owner-sec-empty">暂无报修</div>';
+            return;
+          }
+
+          bodyEl.innerHTML = filtered.map(function(r) {
+            var days = Math.floor((new Date() - new Date(r.created_at)) / (1000*60*60*24));
+            var photos = '';
+            if (r.fault_photos && r.fault_photos.length > 0) {
+              photos = '<div class="owner-sec-photos">' +
+                r.fault_photos.slice(0,3).map(function(p) {
+                  return '<img src="'+p.path+'" onclick="Utils.previewImage(\''+p.path+'\')">';
+                }).join('') +
+                (r.fault_photos.length > 3 ? '<div class="owner-sec-more">+'+(r.fault_photos.length-3)+'</div>' : '') +
+              '</div>';
+            }
+            var statusColor = {pending:'#fa8c16',processing:'#1890ff',completed:'#52c41a',confirmed:'#8bc34a'}[status] || '#999';
+            return '<a href="owner_detail.html?id=' + r.id + '" class="owner-sec-card" style="border-left-color:' + statusColor + ';">' +
+              '<div class="owner-sec-card-top">' +
+                '<div class="owner-sec-card-title">' + Utils.escapeHtml(r.fault_location) + '</div>' +
+                '<div class="owner-sec-card-days">' + days + '天</div>' +
+              '</div>' +
+              '<div class="owner-sec-card-meta">' + Utils.formatTime(r.created_at) + '</div>' +
+              photos +
+            '</a>';
+          }).join('');
+        });
+      } catch(e) {
+        console.error('Kanban load error:', e);
+      }
+    }
+
+    // 列折叠/展开
+    var ownerColStates = {pending:false, processing:false, completed:true, confirmed:true};
+    function toggleOwnerCol(status) {
+      ownerColStates[status] = !ownerColStates[status];
+      var body = document.getElementById('owner-col-' + status + '-body');
+      var icon = document.getElementById('toggle-icon-' + status);
+      if (ownerColStates[status]) {
+        body.classList.remove('owner-sec-collapsed');
+        icon.textContent = '▼';
+      } else {
+        body.classList.add('owner-sec-collapsed');
+        icon.textContent = '▶';
+      }
+    }
+
+    function showHelp() {
+      document.getElementById('helpModal').style.display = 'block';
+      document.body.style.overflow = 'hidden';
+    }
+    function closeHelp() {
+      document.getElementById('helpModal').style.display = 'none';
+      document.body.style.overflow = '';
+    }
+    document.getElementById('helpModal').addEventListener('click', function(e) {
+      if (e.target === this) closeHelp();
+    });
+  </script>
+
+  <script>
+    document.write(renderBottomNav('owner'));
+  </script>
+
+  <style>
+    /* 统计行 */
+    .owner-stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .owner-stat-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 10px 6px;
+      text-align: center;
+      border-left: 3px solid;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .owner-stat-num {
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .owner-stat-label {
+      font-size: 11px;
+      color: #888;
+      margin-top: 2px;
+    }
+    /* 竖向看板 */
+    .owner-kanban-section {
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .owner-kanban-sec-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .owner-kanban-count {
+      background: rgba(255,255,255,0.3);
+      border-radius: 10px;
+      padding: 1px 8px;
+      font-size: 12px;
+    }
+    .owner-sec-toggle {
+      font-size: 11px;
+      color: rgba(255,255,255,0.8);
+    }
+    .owner-kanban-sec-body {
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .owner-sec-collapsed {
+      display: none;
+    }
+    .owner-sec-empty {
+      text-align: center;
+      color: #bbb;
+      font-size: 12px;
+      padding: 12px 0;
+    }
+    .owner-sec-card {
+      display: block;
+      background: #f9f9f9;
+      border-radius: 6px;
+      padding: 10px 12px;
+      text-decoration: none;
+      color: inherit;
+      border-left: 3px solid;
+    }
+    .owner-sec-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .owner-sec-card-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .owner-sec-card-days {
+      font-size: 11px;
+      color: #999;
+      background: #f0f0f0;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    .owner-sec-card-meta {
+      font-size: 11px;
+      color: #999;
+      margin-bottom: 4px;
+    }
+    .owner-sec-photos {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .owner-sec-photos img {
+      width: 40px;
+      height: 40px;
+      object-fit: cover;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .owner-sec-more {
+      width: 40px;
+      height: 40px;
+      background: #e8e8e8;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #888;
+    }
+  </style>
+</body>
+</html>

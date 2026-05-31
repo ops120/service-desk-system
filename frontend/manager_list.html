@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>报修管理 - 通用报修系统</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="header">
+    <a href="#" id="backBtn" class="header-back">← 返回</a>
+    <h1>报修管理</h1>
+  </div>
+
+  <div class="container" style="padding-top: 20px; padding-bottom: 80px;">
+    <div style="display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto;">
+      <button class="btn filter-btn active" data-filter="all" style="padding: 8px 14px; font-size: 15px; white-space: nowrap;">全部</button>
+      <button class="btn filter-btn" data-filter="pending" style="padding: 8px 14px; font-size: 15px; white-space: nowrap;">待处理</button>
+      <button class="btn filter-btn" data-filter="processing" style="padding: 8px 14px; font-size: 15px; white-space: nowrap;">处理中</button>
+      <button class="btn filter-btn" data-filter="completed" style="padding: 8px 14px; font-size: 15px; white-space: nowrap;">已完成</button>
+      <button class="btn filter-btn" data-filter="confirmed" style="padding: 8px 14px; font-size: 15px; white-space: nowrap;">已确认</button>
+    </div>
+
+    <div id="repairList">
+      <div style="text-align: center; padding: 40px; color: #999;">加载中...</div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    checkAuth();
+    // 根据角色设置返回链接
+    var currentUser = Utils.getUser();
+    if (currentUser && currentUser.role === 'admin') {
+      document.getElementById('backBtn').href = 'admin_users.html';
+    } else {
+      document.getElementById('backBtn').href = 'manager.html';
+    }
+    let allRepairs = [];
+
+    async function loadRepairs() {
+      try {
+        allRepairs = await ManagerAPI.getAllRepairs();
+        renderRepairs('all');
+      } catch (err) {
+        document.getElementById('repairList').innerHTML = '<div class="empty-state"><div class="empty-state-text">加载失败</div></div>';
+      }
+    }
+
+    function renderRepairs(filter) {
+      const list = document.getElementById('repairList');
+      let repairs = filter === 'all' ? allRepairs : allRepairs.filter(r => r.status === filter);
+
+      if (repairs.length === 0) {
+        list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">暂无报修单</div></div>';
+        return;
+      }
+
+      const statusColors = { pending: '#fa8c16', processing: '#1890ff', completed: '#52c41a', confirmed: '#8bc34a' };
+
+      list.innerHTML = repairs.map(repair => `
+        <a href="manager_detail.html?id=${repair.id}" style="text-decoration: none; color: inherit;">
+          <div class="card" style="border-left: 4px solid ${statusColors[repair.status]}; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: 12px;">
+              <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 17px; margin-bottom: 6px;">${Utils.escapeHtml(repair.fault_location)}</div>
+                <div style="font-size: 15px; color: #666;">${Utils.escapeHtml(repair.owner_name || '业主')} · ${Utils.escapeHtml(repair.unit_number)}</div>
+              </div>
+              <span class="status-tag status-${repair.status}" style="font-size: 14px; padding: 4px 10px;">${Utils.getStatusTag(repair.status).label}</span>
+            </div>
+            <div style="margin-top: 10px; font-size: 14px; color: #888;">
+              ${Utils.formatTime(repair.created_at)}
+            </div>
+          </div>
+        </a>
+      `).join('');
+    }
+
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderRepairs(btn.dataset.filter);
+      });
+    });
+
+    loadRepairs();
+  </script>
+
+  <script>
+    document.write(renderBottomNav('manager'));
+  </script>
+</body>
+</html>

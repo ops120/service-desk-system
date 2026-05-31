@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>通用报修系统</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="login-page">
+    <div class="login-header">
+      <h1>🏢 通用报修系统</h1>
+      <p>快速报修 · 实时查询 · 便捷确认</p>
+    </div>
+
+    <div class="login-form">
+      <div class="login-card">
+        <div class="login-tabs">
+          <div class="login-tab active" data-tab="owner">业主登录</div>
+          <div class="login-tab" data-tab="manager">物业登录</div>
+          <div class="login-tab" data-tab="admin">管理员登录</div>
+        </div>
+
+        <form id="loginForm">
+          <input type="hidden" id="role" value="owner">
+
+          <div class="form-group">
+            <label class="form-label required">用户名</label>
+            <input type="text" id="username" class="form-input" placeholder="请输入用户名" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label required">密码</label>
+            <input type="password" id="password" class="form-input" placeholder="请输入密码" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label required">验证码</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="text" id="captchaAnswer" class="form-input" placeholder="请输入右侧计算结果" style="flex:1;" required>
+              <div id="captchaImg" style="cursor:pointer;flex-shrink:0;" onclick="loadCaptcha()" title="点击刷新">
+                <span style="color:#999;font-size:12px;">加载中...</span>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block" id="loginBtn">登录</button>
+
+          <div style="text-align:center;margin-top:16px;" id="registerLink">
+            <a href="owner_register.html" style="color:#1890ff;">还没有账号？立即注册</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    let captchaKey = '';
+
+    // 加载验证码
+    async function loadCaptcha() {
+      try {
+        const res = await fetch(API_BASE + '/auth/captcha');
+        const data = await res.json();
+        captchaKey = data.key;
+        document.getElementById('captchaImg').innerHTML = data.data;
+      } catch (e) {
+        document.getElementById('captchaImg').innerHTML = '<span style="color:#f00;">加载失败</span>';
+      }
+    }
+
+    // Tab切换
+    document.querySelectorAll('.login-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const role = tab.dataset.tab;
+        document.getElementById('role').value = role;
+        document.getElementById('registerLink').style.display = role === 'owner' ? '' : 'none';
+      });
+    });
+
+    // 登录表单提交
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const role = document.getElementById('role').value;
+      const captchaAnswer = document.getElementById('captchaAnswer').value.trim();
+
+      if (!username || !password) {
+        Utils.showToast('请填写用户名和密码');
+        return;
+      }
+      if (!captchaAnswer) {
+        Utils.showToast('请填写验证码');
+        return;
+      }
+
+      const btn = document.getElementById('loginBtn');
+      btn.disabled = true;
+      btn.textContent = '登录中...';
+
+      try {
+        const data = await Utils.request('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ username, password, captchaKey, captchaAnswer })
+        });
+
+        if (data.message === '登录成功' || data.token) {
+          Utils.setStorage('token', data.token);
+          Utils.setStorage('user', JSON.stringify(data.user));
+          Utils.showToast('登录成功！');
+          setTimeout(() => {
+            if (data.user.role === 'owner') {
+              location.href = 'owner.html';
+            } else if (data.user.role === 'admin') {
+              location.href = 'admin_users.html';
+            } else {
+              location.href = 'manager.html';
+            }
+          }, 500);
+        }
+      } catch (err) {
+        Utils.showToast(err.message);
+        loadCaptcha();
+        document.getElementById('captchaAnswer').value = '';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '登录';
+      }
+    });
+
+    // 检查是否已登录
+    if (Utils.isLoggedIn()) {
+      const user = Utils.getUser();
+      if (user.role === 'owner') {
+        location.href = 'owner.html';
+      } else if (user.role === 'admin') {
+        location.href = 'admin_users.html';
+      } else {
+        location.href = 'manager.html';
+      }
+    }
+
+    // 页面加载时获取验证码
+    loadCaptcha();
+  </script>
+</body>
+</html>

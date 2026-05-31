@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>我的报修 - 通用报修系统</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="header">
+    <a href="owner.html" class="header-back">← 返回</a>
+    <h1>我的报修</h1>
+  </div>
+
+  <div class="container" style="padding-top: 20px; padding-bottom: 80px;">
+    <!-- 筛选标签 -->
+    <div style="display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; flex-wrap: wrap;">
+      <button class="btn btn-sm filter-btn active" data-filter="all" style="padding: 6px 12px; font-size: 13px;">全部</button>
+      <button class="btn btn-sm filter-btn" data-filter="pending" style="padding: 6px 12px; font-size: 13px;">待处理</button>
+      <button class="btn btn-sm filter-btn" data-filter="processing" style="padding: 6px 12px; font-size: 13px;">处理中</button>
+      <button class="btn btn-sm filter-btn" data-filter="completed" style="padding: 6px 12px; font-size: 13px;">已完成</button>
+      <button class="btn btn-sm filter-btn" data-filter="confirmed" style="padding: 6px 12px; font-size: 13px;">已确认</button>
+      <button class="btn btn-sm filter-btn" data-filter="cancelled" style="padding: 6px 12px; font-size: 13px;">已取消</button>
+    </div>
+
+    <!-- 报修列表 -->
+    <div id="repairList">
+      <div style="text-align: center; padding: 40px; color: #999;">加载中...</div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    checkAuth();
+
+    let allRepairs = [];
+
+    // 加载报修列表
+    async function loadRepairs() {
+      try {
+        allRepairs = await OwnerAPI.getMyRepairs();
+        renderRepairs('all');
+      } catch (err) {
+        document.getElementById('repairList').innerHTML = '<div class="empty-state"><div class="empty-state-text">加载失败</div></div>';
+      }
+    }
+
+    // 渲染报修列表
+    function renderRepairs(filter) {
+      const list = document.getElementById('repairList');
+      let repairs = allRepairs;
+
+      if (filter !== 'all') {
+        repairs = allRepairs.filter(r => r.status === filter);
+      }
+
+      if (repairs.length === 0) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <div class="empty-state-text">暂无报修记录</div>
+            <a href="owner_repair.html" class="btn btn-primary" style="margin-top: 16px;">立即报修</a>
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = repairs.map(repair => {
+        const status = Utils.getStatusTag(repair.status);
+        const borderColor = status.class === 'status-pending' ? '#fa8c16' :
+                           status.class === 'status-processing' ? '#1890ff' :
+                           status.class === 'status-completed' ? '#52c41a' :
+                           status.class === 'status-confirmed' ? '#8bc34a' : '#999';
+
+        return `
+          <a href="owner_detail.html?id=${repair.id}" style="text-decoration: none; color: inherit;">
+            <div class="card" style="border-left: 4px solid ${borderColor}; margin-bottom: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div>
+                  <div style="font-weight: 500; margin-bottom: 4px;">${Utils.escapeHtml(repair.fault_location)}</div>
+                  <div style="font-size: 13px; color: #666;">${Utils.escapeHtml(repair.unit_number)}</div>
+                </div>
+                <span class="status-tag ${status.class}">${status.label}</span>
+              </div>
+              <div style="margin-top: 8px; font-size: 12px; color: #999;">
+                ${Utils.formatTime(repair.created_at)}
+              </div>
+              ${repair.fault_photos && repair.fault_photos.length > 0 ? `
+                <div style="margin-top: 8px; display: flex; gap: 4px;">
+                  ${repair.fault_photos.slice(0, 3).map(p => `<img src="${p.path}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`).join('')}
+                  ${repair.fault_photos.length > 3 ? `<div style="width: 40px; height: 40px; background: #f0f0f0; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #666;">+${repair.fault_photos.length - 3}</div>` : ''}
+                </div>
+              ` : ''}
+            </div>
+          </a>
+        `;
+      }).join('');
+    }
+
+    // 筛选
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderRepairs(btn.dataset.filter);
+      });
+    });
+
+    loadRepairs();
+  </script>
+
+  <script>
+    document.write(renderBottomNav('owner'));
+  </script>
+</body>
+</html>

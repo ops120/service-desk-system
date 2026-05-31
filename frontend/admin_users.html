@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>管理后台</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f5f5f5}
+.header{background:#1890ff;color:#fff;padding:16px;text-align:center;position:relative}
+.header a{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:#fff;text-decoration:none;font-size:20px}
+.header h1{margin:0;font-size:18px}
+/* 主选项卡 */
+.main-tabs{padding:12px 12px 0;max-width:750px;margin:0 auto;display:flex;gap:8px;}
+.main-tab{flex:1;padding:10px 0;text-align:center;background:#fff;border-radius:8px;border:2px solid transparent;font-size:14px;font-weight:600;color:#666;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.1);transition:all 0.2s;}
+.main-tab.active{background:#1890ff;color:#fff;border-color:#1890ff;}
+.main-tab .tab-icon{font-size:18px;display:block;margin-bottom:4px;}
+.main-tab .tab-label{font-size:12px;}
+/* 统计卡片组 */
+.stats-section{padding:12px;max-width:750px;margin:0 auto}
+.section-title{font-size:13px;font-weight:600;color:#666;margin-bottom:6px;padding:0 2px;}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat-card{background:#fff;border-radius:8px;padding:12px 8px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.1)}
+.stat-num{font-size:24px;font-weight:700;color:#1890ff}
+.stat-num.pending{color:#fa8c16}
+.stat-num.approved{color:#52c41a}
+.stat-num.rejected{color:#ff4d4f}
+.stat-num.all{color:#1890ff}
+.stat-num.processing{color:#1890ff}
+.stat-num.confirmed{color:#8bc34a}
+.stat-num.cancelled{color:#999}
+.stat-label{font-size:11px;color:#888;margin-top:2px}
+/* 标签栏 */
+.tabs{padding:0 12px;max-width:750px;margin:0 auto}
+.tabs-inner{display:flex;background:#fff;border-radius:8px;margin-bottom:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.1)}
+.tab{flex:1;text-align:center;padding:10px 0;font-size:13px;color:#666;cursor:pointer;border-bottom:2px solid transparent}
+.tab.active{border-bottom-color:#1890ff;color:#1890ff;font-weight:600}
+.tab .badge{padding:2px 6px;border-radius:10px;font-size:11px;margin-left:4px}
+.tab .badge.orange{background:#fff7e6;color:#fa8c16}
+.tab .badge.green{background:#f6ffed;color:#52c41a}
+.tab .badge.red{background:#fff1f0;color:#ff4d4f}
+/* 角色筛选 */
+.role-filter{padding:0 12px;max-width:750px;margin:0 auto 12px}
+.role-filter select{width:100%;padding:8px 12px;border:1px solid #e8e8e8;border-radius:6px;font-size:14px;background:#fff}
+/* 用户卡片 */
+.user-list{padding:0 12px 80px;max-width:750px;margin:0 auto}
+.user-card{background:#fff;border-radius:8px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.1)}
+.user-card-header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #f0f0f0}
+.user-info{flex:1}
+.user-name{font-size:15px;font-weight:600}
+.user-meta{font-size:12px;color:#888;margin-top:2px}
+.user-role{padding:3px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.user-role.owner{background:#e6f7ff;color:#1890ff}
+.user-role.manager{background:#fff7e6;color:#fa8c16}
+.user-role.admin{background:#f6ffed;color:#52c41a}
+.user-status{padding:3px 10px;border-radius:4px;font-size:12px;font-weight:500}
+.user-status.pending{background:#fff7e6;color:#fa8c16}
+.user-status.approved{background:#f6ffed;color:#52c41a}
+.user-status.rejected{background:#fff1f0;color:#ff4d4f}
+.user-card-body{padding:12px 14px}
+.cert-row{display:flex;gap:8px;flex-wrap:wrap}
+.cert-item{position:relative;width:60px;height:60px;border-radius:6px;overflow:hidden;border:1px solid #e8e8e8;cursor:pointer}
+.cert-item img{width:100%;height:100%;object-fit:cover}
+.cert-item .overlay{position:absolute;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;opacity:0;transition:opacity 0.2s}
+.cert-item:hover .overlay{opacity:1}
+.cert-item .cert-label{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:#fff;font-size:9px;text-align:center;padding:2px 0}
+.no-cert{width:60px;height:60px;border-radius:6px;border:1px dashed #e8e8e8;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:10px;text-align:center;padding:4px}
+.user-actions{display:flex;gap:8px;margin-top:12px}
+.btn-sm{padding:6px 14px;border:none;border-radius:4px;font-size:13px;cursor:pointer;width:50%}
+.btn-approve{background:#52c41a;color:#fff}
+.btn-reject{background:#ff4d4f;color:#fff}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+/* 系统名称设置 */
+.sysname-bar{padding:8px 12px;max-width:750px;margin:0 auto 8px;display:flex;align-items:center;gap:8px}
+.sysname-bar input{flex:1;padding:6px 10px;border:1px solid #e8e8e8;border-radius:4px;font-size:13px}
+.sysname-bar button{padding:6px 12px;background:#1890ff;color:#fff;border:none;border-radius:4px;font-size:13px;cursor:pointer}
+/* 弹窗 */
+.modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:9999;align-items:center;justify-content:center}
+.modal-content{max-width:100%;max-height:100%;object-fit:contain}
+.modal-close{position:absolute;top:10px;right:15px;color:#fff;font-size:28px;cursor:pointer;z-index:10}
+.modal-watermark{position:absolute;pointer-events:none;color:rgba(255,255,255,0.4);padding:20px;font-size:18px;text-align:center;white-space:nowrap;top:50%;left:50%;transform:translate(-50%,-50%)}
+.empty{text-align:center;padding:40px;color:#999;font-size:14px}
+.hidden{display:none !important}
+</style>
+</head>
+<body>
+<div class="header">
+<a href="javascript:void(0)" onclick="Utils.logout()">🚪 退出</a>
+<h1 id="pageTitle" style="flex:1;">管理后台</h1>
+<span onclick="showHelp()" style="color:#fff;cursor:pointer;font-size:20px;margin-right:8px;">❓</span>
+</div>
+
+<!-- 帮助弹窗 -->
+<div id="helpModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:10000;overflow-y:auto;">
+  <div style="background:#fff;margin:20px;border-radius:12px;padding:20px;max-width:600px;margin:20px auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2 style="margin:0;font-size:18px;color:#333;">🔧 管理员使用帮助</h2>
+      <span onclick="closeHelp()" style="font-size:24px;cursor:pointer;color:#999;">×</span>
+    </div>
+    <div style="font-size:14px;line-height:1.8;color:#666;">
+      <h3 style="font-size:15px;color:#1890ff;margin:12px 0 8px;">👥 用户审核</h3>
+      <ol style="margin:0;padding-left:20px;">
+        <li>查看待审核用户提交的证件照片</li>
+        <li>点击照片可放大查看（带水印保护）</li>
+        <li>核实信息后点击「批准」或「拒绝」</li>
+        <li>被批准的用户可以登录系统</li>
+      </ol>
+      <h3 style="font-size:15px;color:#1890ff;margin:12px 0 8px;">📋 报修统计</h3>
+      <ul style="margin:0;padding-left:20px;">
+        <li>查看所有报修单的状态分布</li>
+        <li>了解当前待处理和处理中的报修数量</li>
+        <li>完成率 = (已完成+已确认) / 总报修</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 系统名称 -->
+<div class="sysname-bar">
+<input type="text" id="sysnameInput" placeholder="系统名称" maxlength="20">
+<button onclick="saveSysname()">保存</button>
+</div>
+
+<!-- ===== 主选项卡 ===== -->
+<div class="main-tabs">
+  <div class="main-tab active" id="tabBtnUser" onclick="switchMainTab('user')">
+    <span class="tab-icon">👥</span>
+    <span class="tab-label">用户审核</span>
+  </div>
+  <div class="main-tab" id="tabBtnRepair" onclick="switchMainTab('repair')">
+    <span class="tab-icon">🔧</span>
+    <span class="tab-label">报修统计</span>
+  </div>
+</div>
+
+<!-- ===== 用户审核面板 ===== -->
+<div id="panelUser">
+  <!-- 用户统计看板 -->
+  <div class="stats-section">
+    <div class="section-title">👥 用户统计</div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-num all" id="statTotal">-</div><div class="stat-label">总用户</div></div>
+      <div class="stat-card"><div class="stat-num pending" id="statPending">-</div><div class="stat-label">待审核</div></div>
+      <div class="stat-card"><div class="stat-num approved" id="statApproved">-</div><div class="stat-label">已通过</div></div>
+      <div class="stat-card"><div class="stat-num rejected" id="statRejected">-</div><div class="stat-label">已拒绝</div></div>
+    </div>
+  </div>
+
+  <!-- 标签筛选 -->
+  <div class="tabs">
+  <div class="tabs-inner">
+  <div class="tab active" data-filter="all" onclick="setFilter('all', this)">全部<span class="badge" id="tabAll"></span></div>
+  <div class="tab" data-filter="pending" onclick="setFilter('pending', this)">待审核<span class="badge orange" id="tabPending"></span></div>
+  <div class="tab" data-filter="approved" onclick="setFilter('approved', this)">已通过<span class="badge green" id="tabApproved"></span></div>
+  <div class="tab" data-filter="rejected" onclick="setFilter('rejected', this)">已拒绝<span class="badge red" id="tabRejected"></span></div>
+  </div>
+  </div>
+
+  <!-- 角色筛选 -->
+  <div class="role-filter">
+  <select id="roleFilter" onchange="loadUsers()">
+  <option value="">全部角色</option>
+  <option value="owner">业主</option>
+  <option value="manager">物业</option>
+  <option value="admin">管理员</option>
+  </select>
+  </div>
+
+  <!-- 用户列表 -->
+  <div class="user-list" id="userList">
+  <div class="empty">加载中...</div>
+  </div>
+</div>
+
+<!-- ===== 报修统计面板 ===== -->
+<div id="panelRepair" class="hidden">
+  <!-- 报修统计看板 -->
+  <div class="stats-section">
+    <div class="section-title">🔧 报修概览</div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-num all" id="repairTotal">-</div><div class="stat-label">总报修</div></div>
+      <div class="stat-card"><div class="stat-num pending" id="repairPending">-</div><div class="stat-label">待处理</div></div>
+      <div class="stat-card"><div class="stat-num processing" id="repairProcessing">-</div><div class="stat-label">处理中</div></div>
+      <div class="stat-card"><div class="stat-num approved" id="repairCompleted">-</div><div class="stat-label">已完成</div></div>
+    </div>
+  </div>
+  <div class="stats-section" style="padding-top:0;">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-num confirmed" id="repairConfirmed">-</div><div class="stat-label">已确认</div></div>
+      <div class="stat-card"><div class="stat-num cancelled" id="repairCancelled">-</div><div class="stat-label">已取消</div></div>
+      <div class="stat-card" style="grid-column:span 2;"><div class="stat-num all" id="repairRate">-</div><div class="stat-label">完成率</div></div>
+    </div>
+  </div>
+
+  <!-- 报修列表入口 -->
+  <div style="padding:0 12px 80px;max-width:750px;margin:0 auto;">
+    <a href="manager_list.html" style="display:block;background:#1890ff;color:#fff;text-align:center;padding:14px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;margin-top:8px;">
+      📋 查看所有报修单
+    </a>
+  </div>
+</div>
+
+<!-- 图片弹窗 -->
+<div id="imgModal" class="modal" onclick="closeModal()">
+<span class="modal-close" onclick="closeModal()">×</span>
+<div id="imgWrapper" style="position:relative;display:flex;align-items:center;justify-content:center;max-width:95%;max-height:85%;">
+<img id="modalImg" class="modal-content" onclick="event.stopPropagation()">
+<div id="modalWatermark" class="modal-watermark"></div>
+</div>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+var API_HOST = location.protocol + '//' + location.host + '/api';
+var token = localStorage.getItem('token');
+var user = JSON.parse(localStorage.getItem('user') || '{}');
+var currentFilter = 'all';
+
+if (!token || user.role !== 'admin') {
+  location.href = 'index.html';
+}
+
+// 主选项卡切换
+function switchMainTab(tab) {
+  document.getElementById('tabBtnUser').classList.toggle('active', tab === 'user');
+  document.getElementById('tabBtnRepair').classList.toggle('active', tab === 'repair');
+  document.getElementById('panelUser').classList.toggle('hidden', tab !== 'user');
+  document.getElementById('panelRepair').classList.toggle('hidden', tab !== 'repair');
+  if (tab === 'repair') {
+    loadStats();
+  }
+}
+
+// 初始化
+document.addEventListener('DOMContentLoaded', function() {
+  loadStats();
+  loadSystemName();
+  loadUsers();
+});
+
+function loadStats() {
+  fetch(API_HOST + '/admin/stats', {
+    headers: {'Authorization': 'Bearer ' + token}
+  }).then(function(r){return r.json()}).then(function(d) {
+    // 用户统计
+    document.getElementById('statTotal').textContent = d.userStats.total;
+    document.getElementById('statPending').textContent = d.userStats.pending;
+    document.getElementById('statApproved').textContent = d.userStats.approved;
+    document.getElementById('statRejected').textContent = d.userStats.rejected;
+    document.getElementById('tabAll').textContent = d.userStats.total;
+    document.getElementById('tabPending').textContent = d.userStats.pending;
+    document.getElementById('tabApproved').textContent = d.userStats.approved;
+    document.getElementById('tabRejected').textContent = d.userStats.rejected;
+    // 报修统计
+    var rs = d.repairStats;
+    document.getElementById('repairTotal').textContent = rs.total;
+    document.getElementById('repairPending').textContent = rs.pending;
+    document.getElementById('repairProcessing').textContent = rs.processing;
+    document.getElementById('repairCompleted').textContent = rs.completed;
+    document.getElementById('repairConfirmed').textContent = rs.confirmed;
+    document.getElementById('repairCancelled').textContent = rs.cancelled;
+    var rate = rs.total > 0 ? (((rs.completed + rs.confirmed) / rs.total) * 100).toFixed(1) + '%' : '0%';
+    document.getElementById('repairRate').textContent = rate;
+  }).catch(function(){console.error('stats error')});
+}
+
+function loadSystemName() {
+  fetch(API_HOST + '/admin/system-name', {
+    headers: {'Authorization': 'Bearer ' + token}
+  }).then(function(r){return r.json()}).then(function(d) {
+    document.getElementById('sysnameInput').value = d.system_name;
+    document.getElementById('pageTitle').textContent = d.system_name;
+  }).catch(function(){console.error('system name error')});
+}
+
+function saveSysname() {
+  var name = document.getElementById('sysnameInput').value.trim();
+  if (!name) { alert('系统名称不能为空'); return; }
+  fetch(API_HOST + '/admin/system-name', {
+    method: 'PUT',
+    headers: {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'},
+    body: JSON.stringify({system_name: name})
+  }).then(function(r){return r.json()}).then(function(d) {
+    if (d.message) {
+      document.getElementById('pageTitle').textContent = name;
+      alert('保存成功');
+    } else {
+      alert(d.error || '保存失败');
+    }
+  }).catch(function(){alert('保存失败')});
+}
+
+function setFilter(filter, el) {
+  currentFilter = filter;
+  document.querySelectorAll('#panelUser .tab').forEach(function(t){t.classList.remove('active')});
+  el.classList.add('active');
+  loadUsers();
+}
+
+function loadUsers() {
+  var role = document.getElementById('roleFilter').value;
+  var status = currentFilter === 'all' ? '' : currentFilter;
+  var url = API_HOST + '/admin/users/filter?status=' + encodeURIComponent(status) + '&role=' + encodeURIComponent(role);
+  fetch(url, {
+    headers: {'Authorization': 'Bearer ' + token}
+  }).then(function(r){return r.json()}).then(function(d) {
+    renderUsers(d.users || []);
+  }).catch(function(){document.getElementById('userList').innerHTML='<div class="empty">加载失败</div>'});
+}
+
+function renderUsers(users) {
+  if (users.length === 0) {
+    document.getElementById('userList').innerHTML = '<div class="empty">暂无用户</div>';
+    return;
+  }
+  var roleLabel = {owner:'业主', manager:'物业', admin:'管理员'};
+  var statusLabel = {pending:'待审核', approved:'已通过', rejected:'已拒绝'};
+  var html = '';
+  users.forEach(function(u) {
+    var certHtml = '';
+    if (u.employee_certificate) {
+      certHtml += '<div class="cert-item" onclick="showModal(\'' + fixPath(u.employee_certificate) + '\', \'' + getWatermark(u) + '\')"><img src="' + fixPath(u.employee_certificate) + '"><div class="cert-label">工牌</div></div>';
+    } else if (u.role === 'manager') {
+      certHtml += '<div class="no-cert">无工牌</div>';
+    }
+    if (u.property_certificate) {
+      certHtml += '<div class="cert-item" onclick="showModal(\'' + fixPath(u.property_certificate) + '\', \'' + getWatermark(u) + '\')"><img src="' + fixPath(u.property_certificate) + '"><div class="cert-label">房产</div></div>';
+    } else if (u.role === 'owner') {
+      certHtml += '<div class="no-cert">无房产证</div>';
+    }
+    var actionHtml = '';
+    if (u.status === 'pending') {
+      actionHtml = '<div class="user-actions">' +
+        '<button class="btn-sm btn-approve" onclick="approveUser(' + u.id + ',\'approved\')">批准</button>' +
+        '<button class="btn-sm btn-reject" onclick="approveUser(' + u.id + ',\'rejected\')">拒绝</button></div>';
+    }
+    html += '<div class="user-card">' +
+      '<div class="user-card-header">' +
+        '<div class="user-info">' +
+          '<div class="user-name">' + Utils.escapeHtml(u.username) + '</div>' +
+          '<div class="user-meta">' + Utils.escapeHtml(u.unit_number||'') + ' · ' + Utils.escapeHtml(u.phone||'') + (u.employee_id ? ' · 工号:' + Utils.escapeHtml(u.employee_id) : '') + '</div>' +
+        '</div>' +
+        '<span class="user-role ' + u.role + '">' + (roleLabel[u.role]||u.role) + '</span>' +
+        '<span class="user-status ' + u.status + '">' + (statusLabel[u.status]||u.status) + '</span>' +
+      '</div>' +
+      '<div class="user-card-body">' +
+        '<div class="cert-row">' + certHtml + '</div>' +
+        actionHtml +
+      '</div>' +
+    '</div>';
+  });
+  document.getElementById('userList').innerHTML = html;
+}
+
+function fixPath(p) {
+  if (!p) return '';
+  if (p.startsWith('http')) return p;
+  return location.protocol + '//' + location.host + p;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>"']/g, function(c) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c];
+  });
+}
+
+function getWatermark(u) {
+  var regTime = u.created_at ? new Date(u.created_at).toLocaleString('zh-CN') : '未知';
+  var reviewTime = new Date().toLocaleString('zh-CN');
+  var reviewer = user.username ? escapeHtml(user.username) : '管理员';
+  var regUser = escapeHtml(u.username);
+  return '注册用户: ' + regUser + '<br>注册时间: ' + escapeHtml(regTime) + '<br>审核人: ' + reviewer + '<br>审核时间: ' + escapeHtml(reviewTime) + '<br>仅供审核使用';
+}
+
+function showModal(src, wm) {
+  var modal = document.getElementById('imgModal');
+  var img = document.getElementById('modalImg');
+  var watermark = document.getElementById('modalWatermark');
+  img.onload = function() {
+    watermark.innerHTML = '';
+    var positions = [{x:0,y:-60},{x:-90,y:50},{x:90,y:50}];
+    positions.forEach(function(pos, i) {
+      var div = document.createElement('div');
+      div.innerHTML = wm;
+      div.style.cssText = 'position:absolute;color:rgba(255,255,255,0.4);padding:12px;font-size:13px;text-align:center;pointer-events:none;white-space:nowrap';
+      div.style.left = pos.x + 'px';
+      div.style.top = pos.y + 'px';
+      div.style.transform = 'translate(-50%,-50%) rotate(' + ((i-1)*15) + 'deg)';
+      watermark.appendChild(div);
+    });
+  };
+  img.src = src;
+  modal.style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('imgModal').style.display = 'none';
+}
+
+function showHelp() {
+  document.getElementById('helpModal').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+function closeHelp() {
+  document.getElementById('helpModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+document.getElementById('helpModal').addEventListener('click', function(e) {
+  if (e.target === this) closeHelp();
+});
+
+function approveUser(id, status) {
+  if (!confirm((status==='approved'?'批准':'拒绝') + '该用户？')) return;
+  fetch(API_HOST + '/admin/users/' + id + '/status', {
+    method: 'PATCH',
+    headers: {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'},
+    body: JSON.stringify({status: status})
+  }).then(function(r){return r.json()}).then(function(d) {
+    if (d.message) {
+      loadStats();
+      loadUsers();
+    } else {
+      alert(d.error || '操作失败');
+    }
+  }).catch(function(){alert('操作失败')});
+}
+</script>
+</body>
+</html>

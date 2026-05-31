@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>用户注册 - 通用报修系统</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="header">
+    <a href="index.html" class="header-back">← 返回</a>
+    <h1>用户注册</h1>
+  </div>
+
+  <div class="container" style="padding-top: 20px;">
+    <form id="registerForm">
+      <!-- 角色选择 -->
+      <div class="card">
+        <div style="font-weight: 500; margin-bottom: 12px;">选择注册身份 <span style="color: red;">*</span></div>
+        <div style="display: flex; gap: 12px;">
+          <label class="role-option" style="flex:1; cursor:pointer;">
+            <input type="radio" name="role" value="owner" checked style="margin-right: 8px;">
+            <span>🏠 业主</span>
+          </label>
+          <label class="role-option" style="flex:1; cursor:pointer;">
+            <input type="radio" name="role" value="manager" style="margin-right: 8px;">
+            <span>🏢 物业</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 基本信息 -->
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label required">用户名</label>
+          <input type="text" id="username" class="form-input" placeholder="请输入用户名" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required">密码</label>
+          <input type="password" id="password" class="form-input" placeholder="至少6位" required minlength="6">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required">确认密码</label>
+          <input type="password" id="confirmPassword" class="form-input" placeholder="请再次输入密码" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required">手机号</label>
+          <input type="tel" id="phone" class="form-input" placeholder="请输入手机号">
+        </div>
+
+        <div class="form-group" id="unitNumberGroup">
+          <label class="form-label required">房号</label>
+          <input type="text" id="unit_number" class="form-input" placeholder="如：1栋101室">
+        </div>
+      </div>
+
+      <!-- 业主必填信息 -->
+      <div class="card" id="ownerExtra" style="display: none;">
+        <div style="font-weight: 500; margin-bottom: 12px;">业主认证信息 <span style="color: red;">*</span></div>
+        <div class="form-group">
+          <label class="form-label required">门牌号照片</label>
+          <div class="photo-upload" id="propertyUpload">
+            <div class="photo-upload-icon">📷</div>
+            <div class="photo-upload-text">点击上传门牌号照片</div>
+            <input type="file" id="propertyInput" accept="image/*" style="display: none;">
+          </div>
+          <div class="photo-preview" id="propertyPreview"></div>
+          <div style="font-size:12px;color:#888;margin-top:6px;">请拍摄门牌号（如1栋101室）以便物业核实</div>
+        </div>
+      </div>
+
+      <!-- 物业必填信息 -->
+      <div class="card" id="managerExtra" style="display: none;">
+        <div style="font-weight: 500; margin-bottom: 12px;">物业员工信息 <span style="color: red;">*</span></div>
+        <div class="form-group">
+          <label class="form-label required">员工编号</label>
+          <input type="text" id="employee_id" class="form-input" placeholder="请输入员工编号">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">工作证件</label>
+          <div class="photo-upload" id="certificateUpload">
+            <div class="photo-upload-icon">📷</div>
+            <div class="photo-upload-text">点击上传工作证件照片</div>
+            <input type="file" id="certificateInput" accept="image/*" style="display: none;">
+          </div>
+          <div class="photo-preview" id="certificatePreview"></div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block" style="margin-bottom: 20px;">提交注册</button>
+    </form>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    let propertyPhoto = null;
+    let certificatePhoto = null;
+
+    // 角色切换
+    function updateRoleUI(role) {
+      document.getElementById('ownerExtra').style.display = role === 'owner' ? 'block' : 'none';
+      document.getElementById('managerExtra').style.display = role === 'manager' ? 'block' : 'none';
+      document.getElementById('unitNumberGroup').style.display = role === 'owner' ? 'block' : 'none';
+      document.getElementById('employee_id').required = role === 'manager';
+      document.getElementById('unit_number').required = role === 'owner';
+    }
+
+    document.querySelectorAll('input[name="role"]').forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        updateRoleUI(e.target.value);
+      });
+    });
+
+    // 初始化：默认选中业主时立即显示业主表单
+    const checkedRole = document.querySelector('input[name="role"]:checked');
+    if (checkedRole) updateRoleUI(checkedRole.value);
+
+    // 房产证上传
+    document.getElementById('propertyUpload').addEventListener('click', () => {
+      document.getElementById('propertyInput').click();
+    });
+    document.getElementById('propertyInput').addEventListener('change', (e) => {
+      if (e.target.files[0]) {
+        propertyPhoto = e.target.files[0];
+        document.getElementById('propertyPreview').innerHTML = `
+          <div class="photo-preview-item">
+            <img src="${URL.createObjectURL(propertyPhoto)}" alt="房产证">
+          </div>
+        `;
+      }
+    });
+
+    // 工作证件上传
+    document.getElementById('certificateUpload').addEventListener('click', () => {
+      document.getElementById('certificateInput').click();
+    });
+    document.getElementById('certificateInput').addEventListener('change', (e) => {
+      console.log('[文件选择] certificateInput change事件', e.target.files);
+      if (e.target.files && e.target.files[0]) {
+        certificatePhoto = e.target.files[0];
+        console.log('[文件选择] 已设置certificatePhoto:', certificatePhoto.name, certificatePhoto.size);
+        document.getElementById('certificatePreview').innerHTML = `
+          <div class="photo-preview-item">
+            <img src="${URL.createObjectURL(certificatePhoto)}" alt="工作证件">
+          </div>
+        `;
+      }
+    });
+
+    // 表单提交
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const phone = document.getElementById('phone').value.trim();
+      const unit_number = document.getElementById('unit_number').value.trim();
+      const role = document.querySelector('input[name="role"]:checked').value;
+
+      // 精准验证必填项
+      if (!username) {
+        Utils.showToast('请填写用户名');
+        return;
+      }
+      if (!password) {
+        Utils.showToast('请填写密码');
+        return;
+      }
+      if (!phone) {
+        Utils.showToast('请填写手机号');
+        return;
+      }
+      if (role === 'owner' && !unit_number) {
+        Utils.showToast('请填写房号');
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        Utils.showToast('两次密码输入不一致');
+        return;
+      }
+
+      if (password.length < 6) {
+        Utils.showToast('密码至少6位');
+        return;
+      }
+
+      // 验证手机号
+      if (!/^1[3-9]\d{9}$/.test(phone)) {
+        Utils.showToast('请输入正确的手机号');
+        return;
+      }
+
+      // 业主必填验证
+      if (role === 'owner') {
+        if (!propertyPhoto) {
+          Utils.showToast('请上传门牌号照片');
+          return;
+        }
+      }
+
+      // 物业必填验证
+      if (role === 'manager') {
+        const employee_id = document.getElementById('employee_id').value.trim();
+        if (!employee_id) {
+          Utils.showToast('请填写员工编号');
+          return;
+        }
+        if (!certificatePhoto) {
+          Utils.showToast('请上传工作证件');
+          return;
+        }
+      }
+
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = '提交中...';
+
+      console.log('=== 开始提交 ===');
+      console.log('username:', username, 'role:', role);
+      console.log('certificatePhoto:', certificatePhoto);
+      console.log('propertyPhoto:', propertyPhoto);
+
+      try {
+        // 1. 先上传证件照片
+        let certificatePath = '';
+        let propertyPath = '';
+
+        if (role === 'manager' && !certificatePhoto) {
+          throw new Error('请上传工作证件');
+        }
+
+        if (certificatePhoto) {
+          console.log('[注册] 上传员工证件:', certificatePhoto.name);
+          const certForm = new FormData();
+          certForm.append('photo', certificatePhoto);
+
+          const certRes = await fetch(location.protocol + '//' + location.host + '/api/upload/temp', { method: 'POST', body: certForm });
+
+          if (!certRes.ok) {
+            throw new Error('员工证件上传失败');
+          }
+
+          const certData = await certRes.json();
+          console.log('[注册] 员工证件结果:', certData);
+          if (!certData.path) {
+            throw new Error('员工证件上传失败: ' + (certData.error || '未知错误'));
+          }
+          certificatePath = certData.path;
+        }
+
+        if (propertyPhoto) {
+          console.log('[注册] 上传房产证:', propertyPhoto.name);
+          const propForm = new FormData();
+          propForm.append('photo', propertyPhoto);
+
+          const propRes = await fetch(location.protocol + '//' + location.host + '/api/upload/temp', { method: 'POST', body: propForm });
+
+          if (propRes.ok) {
+            const propData = await propRes.json();
+            if (propData.path) propertyPath = propData.path;
+          }
+        }
+
+        console.log('[注册] 准备注册，certificatePath:', certificatePath);
+
+        // 2. 注册用户
+        const data = await Utils.request('/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({
+            username,
+            password,
+            role,
+            phone,
+            unit_number: role === 'owner' ? unit_number : '物业',
+            employee_id: role === 'manager' ? document.getElementById('employee_id').value.trim() : '',
+            property_certificate: propertyPath,
+            employee_certificate: certificatePath,
+            status: 'pending'
+          })
+        });
+
+        console.log('[注册] API返回:', data);
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        if (data.message) {
+          Utils.showToast('注册成功，请等待管理员审核！');
+          setTimeout(() => {
+            location.href = 'index.html';
+          }, 1000);
+        }
+      } catch (err) {
+        console.error('[注册] 异常:', err);
+        Utils.showToast(err.message || '注册失败');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '提交注册';
+      }
+    });
+  </script>
+</body>
+</html>

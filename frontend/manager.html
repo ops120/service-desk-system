@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>物业管理系统</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="header" style="display: flex; align-items: center; justify-content: space-between;">
+    <h1 style="flex: 1;">物业管理系统</h1>
+    <a href="change_password.html" style="color: #fff; font-size: 13px; text-decoration: none; margin-right: 8px;">修改密码</a>
+  </div>
+
+  <!-- ===== 统计看板 ===== -->
+  <div style="padding: 12px 16px 0; max-width: 750px; margin: 0 auto;">
+    <div class="kanban-stats-row">
+      <div class="kanban-stat-card" style="border-left-color:#fa8c16;">
+        <div class="kanban-stat-num" style="color:#fa8c16;" id="pendingCount">0</div>
+        <div class="kanban-stat-label">待处理</div>
+      </div>
+      <div class="kanban-stat-card" style="border-left-color:#1890ff;">
+        <div class="kanban-stat-num" style="color:#1890ff;" id="processingCount">0</div>
+        <div class="kanban-stat-label">处理中</div>
+      </div>
+      <div class="kanban-stat-card" style="border-left-color:#52c41a;">
+        <div class="kanban-stat-num" style="color:#52c41a;" id="completedCount">0</div>
+        <div class="kanban-stat-label">已完成</div>
+      </div>
+      <div class="kanban-stat-card" style="border-left-color:#8bc34a;">
+        <div class="kanban-stat-num" style="color:#8bc34a;" id="confirmedCount">0</div>
+        <div class="kanban-stat-label">已确认</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 快捷入口 ===== -->
+  <div style="padding: 12px 16px; max-width: 750px; margin: 0 auto;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <a href="manager_list.html" class="btn btn-primary" style="padding:12px;border-radius:8px;text-align:center;text-decoration:none;font-size:14px;font-weight:600;background:#1890ff;color:#fff;border:none;">
+        📋 列表视图
+      </a>
+      <button onclick="showHelp()" class="btn" style="padding:12px;border-radius:8px;text-align:center;font-size:14px;font-weight:600;background:#fff;color:#333;border:1px solid #e8e8e8;cursor:pointer;">
+        ❓ 使用帮助
+      </button>
+    </div>
+    <div id="adminSection" style="display:none;margin-top:10px;">
+      <a href="admin_users.html" style="display:block;background:#722ed1;color:#fff;text-align:center;padding:12px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">
+        👥 用户审核管理
+      </a>
+    </div>
+  </div>
+
+  <!-- ===== 看板主体（竖向） ===== -->
+  <div style="padding: 0 16px 80px; max-width: 750px; margin: 0 auto; display:flex; flex-direction:column; gap:10px;">
+
+    <!-- 待处理 -->
+    <div class="kanban-section" id="section-pending">
+      <div class="kanban-sec-header" style="background:#fa8c16;cursor:pointer;" onclick="toggleCol('pending')">
+        <span>🕐 待处理</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="kanban-sec-count" id="col-count-pending">0</span>
+          <span class="kanban-sec-toggle" id="toggle-icon-pending">▼</span>
+        </div>
+      </div>
+      <div class="kanban-sec-body" id="col-pending"></div>
+    </div>
+
+    <!-- 处理中 -->
+    <div class="kanban-section" id="section-processing">
+      <div class="kanban-sec-header" style="background:#1890ff;cursor:pointer;" onclick="toggleCol('processing')">
+        <span>🔧 处理中</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="kanban-sec-count" id="col-count-processing">0</span>
+          <span class="kanban-sec-toggle" id="toggle-icon-processing">▼</span>
+        </div>
+      </div>
+      <div class="kanban-sec-body" id="col-processing"></div>
+    </div>
+
+    <!-- 已完成 -->
+    <div class="kanban-section" id="section-completed">
+      <div class="kanban-sec-header" style="background:#52c41a;cursor:pointer;" onclick="toggleCol('completed')">
+        <span>✅ 已完成</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="kanban-sec-count" id="col-count-completed">0</span>
+          <span class="kanban-sec-toggle" id="toggle-icon-completed">▼</span>
+        </div>
+      </div>
+      <div class="kanban-sec-body kanban-sec-collapsed" id="col-completed"></div>
+    </div>
+
+    <!-- 已确认 -->
+    <div class="kanban-section" id="section-confirmed">
+      <div class="kanban-sec-header" style="background:#8bc34a;cursor:pointer;" onclick="toggleCol('confirmed')">
+        <span>✔️ 已确认</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="kanban-sec-count" id="col-count-confirmed">0</span>
+          <span class="kanban-sec-toggle" id="toggle-icon-confirmed">▼</span>
+        </div>
+      </div>
+      <div class="kanban-sec-body kanban-sec-collapsed" id="col-confirmed"></div>
+    </div>
+
+  </div>
+
+  <!-- 帮助弹窗 -->
+  <div id="helpModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;overflow-y:auto;">
+    <div style="background:#fff;margin:20px;border-radius:12px;padding:20px;max-width:600px;margin:20px auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="margin:0;font-size:18px;color:#333;">🏢 物业使用帮助</h2>
+        <span onclick="closeHelp()" style="font-size:24px;cursor:pointer;color:#999;">×</span>
+      </div>
+      <div style="font-size:14px;line-height:1.8;color:#666;">
+        <h3 style="font-size:15px;color:#1890ff;margin:12px 0 8px;">📋 处理报修流程</h3>
+        <ol style="margin:0;padding-left:20px;">
+          <li>点击卡片进入报修详情页</li>
+          <li>在详情页可更新状态（待处理→处理中）</li>
+          <li>维修完成后，点击「上传完工照片并完成」</li>
+          <li>必须上传至少1张完工照片才能结单</li>
+          <li>完成后等待业主确认</li>
+        </ol>
+        <h3 style="font-size:15px;color:#1890ff;margin:12px 0 8px;">📷 上传完工照片</h3>
+        <ol style="margin:0;padding-left:20px;">
+          <li>在报修详情页底部「上传完工照片」区域</li>
+          <li>点击上传区域选择照片（至少1张）</li>
+          <li>点击「上传完工照片并完成」按钮</li>
+          <li>上传后状态自动变为「已完成」</li>
+        </ol>
+        <h3 style="font-size:15px;color:#722ed1;margin:12px 0 8px;">👥 用户审核（管理员）</h3>
+        <ol style="margin:0;padding-left:20px;">
+          <li>点击「用户审核管理」进入管理页面</li>
+          <li>查看待审核用户提交的证件照片</li>
+          <li>点击「批准」或「拒绝」</li>
+        </ol>
+        <h3 style="font-size:15px;color:#52c41a;margin:12px 0 8px;">🔔 状态说明</h3>
+        <ul style="margin:0;padding-left:20px;">
+          <li><span style="color:#fa8c16">●</span> 待处理 — 新提交，等待物业接单</li>
+          <li><span style="color:#1890ff">●</span> 处理中 — 物业已开始处理</li>
+          <li><span style="color:#52c41a">●</span> 已完成 — 物业已完工，等待业主确认</li>
+          <li><span style="color:#8bc34a">●</span> 已确认 — 业主已确认，工单关闭</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    const user = checkAuth();
+    if (!user) {
+    } else {
+      if (user.role === 'admin') {
+        document.getElementById('adminSection').style.display = 'block';
+      }
+    }
+
+    let allRepairs = [];
+
+    async function loadData() {
+      try {
+        allRepairs = await ManagerAPI.getAllRepairs();
+        updateStats();
+        renderKanban();
+      } catch (err) {
+        console.error('Load error:', err);
+      }
+    }
+
+    function updateStats() {
+      const pending = allRepairs.filter(r => r.status === 'pending').length;
+      const processing = allRepairs.filter(r => r.status === 'processing').length;
+      const completed = allRepairs.filter(r => r.status === 'completed').length;
+      const confirmed = allRepairs.filter(r => r.status === 'confirmed').length;
+      document.getElementById('pendingCount').textContent = pending;
+      document.getElementById('processingCount').textContent = processing;
+      document.getElementById('completedCount').textContent = completed;
+      document.getElementById('confirmedCount').textContent = confirmed;
+    }
+
+    function renderKanban() {
+      const statuses = ['pending', 'processing', 'completed', 'confirmed'];
+      statuses.forEach(status => {
+        const repairs = allRepairs.filter(r => r.status === status);
+        const col = document.getElementById('col-' + status);
+        const countEl = document.getElementById('col-count-' + status);
+        countEl.textContent = repairs.length;
+
+        if (repairs.length === 0) {
+          col.innerHTML = '<div class="kanban-sec-empty">暂无报修</div>';
+          return;
+        }
+
+        col.innerHTML = repairs.map(r => {
+          const days = Math.floor((new Date() - new Date(r.created_at)) / (1000*60*60*24));
+          const photos = r.fault_photos && r.fault_photos.length > 0
+            ? '<div class="kanban-sec-photos">' +
+                r.fault_photos.slice(0,3).map(p => '<img src="'+p.path+'" onclick="Utils.previewImage(\''+p.path+'\')">').join('') +
+                (r.fault_photos.length > 3 ? '<div class="kanban-sec-more">+'+(r.fault_photos.length-3)+'</div>' : '') +
+              '</div>'
+            : '';
+          const statusColor = {pending:'#fa8c16',processing:'#1890ff',completed:'#52c41a',confirmed:'#8bc34a'}[status] || '#999';
+          return '<a href="manager_detail.html?id=' + r.id + '" class="kanban-sec-card" style="border-left-color:' + statusColor + ';">' +
+            '<div class="kanban-sec-card-top">' +
+              '<div class="kanban-sec-card-title">' + Utils.escapeHtml(r.fault_location) + '</div>' +
+              '<div class="kanban-sec-card-owner">' + Utils.escapeHtml(r.owner_name||'业主') + ' · ' + Utils.escapeHtml(r.unit_number) + '</div>' +
+            '</div>' +
+            '<div class="kanban-sec-card-meta">' + Utils.formatTime(r.created_at) + ' · ' + days + '天</div>' +
+            photos +
+          '</a>';
+        }).join('');
+      });
+    }
+
+    // 列折叠/展开
+    var colStates = {pending:false, processing:false, completed:true, confirmed:true};
+    function toggleCol(status) {
+      colStates[status] = !colStates[status];
+      var body = document.getElementById('col-' + status);
+      var icon = document.getElementById('toggle-icon-' + status);
+      if (colStates[status]) {
+        body.classList.remove('kanban-sec-collapsed');
+        icon.textContent = '▼';
+      } else {
+        body.classList.add('kanban-sec-collapsed');
+        icon.textContent = '▶';
+      }
+    }
+
+    loadData();
+
+    function showHelp() {
+      document.getElementById('helpModal').style.display = 'block';
+      document.body.style.overflow = 'hidden';
+    }
+    function closeHelp() {
+      document.getElementById('helpModal').style.display = 'none';
+      document.body.style.overflow = '';
+    }
+    document.getElementById('helpModal').addEventListener('click', function(e) {
+      if (e.target === this) closeHelp();
+    });
+  </script>
+
+  <script>
+    document.write(renderBottomNav('manager'));
+  </script>
+
+  <style>
+    /* 统计行 */
+    .kanban-stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .kanban-stat-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 12px 8px;
+      text-align: center;
+      border-left: 3px solid;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .kanban-stat-num {
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .kanban-stat-label {
+      font-size: 11px;
+      color: #888;
+      margin-top: 2px;
+    }
+    /* 竖向看板 */
+    .kanban-section {
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .kanban-sec-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 14px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .kanban-sec-count {
+      background: rgba(255,255,255,0.3);
+      border-radius: 10px;
+      padding: 1px 8px;
+      font-size: 12px;
+    }
+    .kanban-sec-toggle {
+      font-size: 11px;
+      color: rgba(255,255,255,0.8);
+    }
+    .kanban-sec-body {
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .kanban-sec-collapsed {
+      display: none;
+    }
+    .kanban-sec-empty {
+      text-align: center;
+      color: #bbb;
+      font-size: 12px;
+      padding: 12px 0;
+    }
+    .kanban-sec-card {
+      display: block;
+      background: #f9f9f9;
+      border-radius: 6px;
+      padding: 12px 14px;
+      text-decoration: none;
+      color: inherit;
+      border-left: 3px solid;
+    }
+    .kanban-sec-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .kanban-sec-card-title {
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .kanban-sec-card-owner {
+      font-size: 12px;
+      color: #666;
+    }
+    .kanban-sec-card-meta {
+      font-size: 11px;
+      color: #999;
+      margin-bottom: 4px;
+    }
+    .kanban-sec-photos {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .kanban-sec-photos img {
+      width: 44px;
+      height: 44px;
+      object-fit: cover;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .kanban-sec-more {
+      width: 44px;
+      height: 44px;
+      background: #e8e8e8;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #888;
+    }
+  </style>
+</body>
+</html>

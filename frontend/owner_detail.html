@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>报修详情 - 通用报修系统</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="header">
+    <a href="owner_list.html" class="header-back">← 返回</a>
+    <h1>报修详情</h1>
+  </div>
+
+  <div class="container repair-detail" style="padding-top: 20px;">
+    <!-- 报修信息 -->
+    <div class="repair-detail-header" id="repairHeader">
+      <div class="repair-detail-status" id="statusLabel">加载中...</div>
+      <div class="repair-detail-info">
+        <div><span>房号：</span><span id="unitNumber">-</span></div>
+        <div><span>提交时间：</span><span id="createTime">-</span></div>
+        <div><span>处理时长：</span><span id="duration">-</span></div>
+      </div>
+    </div>
+
+    <!-- 基本信息 -->
+    <div class="repair-section">
+      <div class="repair-section-title">📍 故障信息</div>
+      <div style="font-size: 14px;">
+        <div style="margin-bottom: 8px;"><strong>故障位置：</strong><span id="faultLocation">-</span></div>
+        <div style="margin-bottom: 8px;"><strong>故障描述：</strong><span id="faultDesc">-</span></div>
+      </div>
+    </div>
+
+    <!-- 故障照片 -->
+    <div class="repair-section" id="faultPhotosSection" style="display: none;">
+      <div class="repair-section-title">📷 故障照片</div>
+      <div class="photo-gallery" id="faultPhotos"></div>
+    </div>
+
+    <!-- 完工照片 -->
+    <div class="repair-section" id="completionPhotosSection" style="display: none;">
+      <div class="repair-section-title">✅ 完工照片</div>
+      <div class="photo-gallery" id="completionPhotos"></div>
+    </div>
+
+    <!-- 状态时间线 -->
+    <div class="repair-section">
+      <div class="repair-section-title" onclick="toggleTimeline(this)" style="cursor:pointer;user-select:none;">
+        📋 处理进度 <span id="timelineToggle" style="float:right;font-size:12px;">▼ 点击收起</span>
+      </div>
+      <div id="timelineContent">
+        <div class="timeline" id="timeline"></div>
+      </div>
+    </div>
+
+    <!-- 确认/打回按钮 -->
+    <div id="actionSection" style="display: none; padding: 16px; position: fixed; bottom: 0; left: 0; right: 0; background: #fff; box-shadow: 0 -2px 8px rgba(0,0,0,0.1);">
+      <!-- 确认完工（已完成时显示） -->
+      <div id="confirmSection">
+        <button class="btn btn-success btn-block" id="confirmBtn" onclick="confirmRepair()">确认完工</button>
+      </div>
+      <!-- 打回按钮（已完成/已确认时可打回） -->
+      <div id="rejectSection" style="margin-top: 8px;">
+        <div style="margin-bottom: 6px;">
+          <input type="text" id="rejectNote" class="form-input" placeholder="请填写打回原因（必填）" style="width:100%;padding:10px;border:1px solid #e8e8e8;border-radius:4px;font-size:14px;">
+        </div>
+        <button class="btn btn-warning btn-block" id="rejectBtn" onclick="rejectRepair()">认为未完工，打回重做</button>
+      </div>
+    </div>
+
+    <!-- 取消按钮（待处理/处理中显示） -->
+    <div id="cancelSection" style="display: none; padding: 16px; position: fixed; bottom: 0; left: 0; right: 0; background: #fff; box-shadow: 0 -2px 8px rgba(0,0,0,0.1);">
+      <button class="btn btn-danger btn-block" id="cancelBtn" onclick="cancelRepair()">取消报修</button>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    checkAuth();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const repairId = urlParams.get('id');
+
+    if (!repairId) {
+      Utils.showToast('参数错误');
+      location.href = 'owner_list.html';
+    }
+
+    let repairData = null;
+
+    // 加载报修详情
+    async function loadDetail() {
+      try {
+        repairData = await OwnerAPI.getRepairDetail(repairId);
+        renderDetail();
+      } catch (err) {
+        Utils.showToast(err.message);
+        setTimeout(() => history.back(), 1000);
+      }
+    }
+
+    function renderDetail() {
+      const d = repairData;
+      const status = Utils.getStatusTag(d.status);
+
+      // 状态标签
+      document.getElementById('statusLabel').textContent = status.label;
+      document.getElementById('statusLabel').style.color = status.class === 'status-pending' ? '#fff3e0' :
+                                                          status.class === 'status-processing' ? '#e3f2fd' :
+                                                          status.class === 'status-completed' ? '#e8f5e9' : '#f1f8e9';
+
+      // 基本信息
+      document.getElementById('unitNumber').textContent = d.unit_number;
+      document.getElementById('createTime').textContent = Utils.formatTime(d.created_at);
+
+      // 计算处理时长
+      var endTime = d.status === 'confirmed' || d.status === 'completed' || d.status === 'cancelled'
+        ? d.updated_at
+        : new Date().toISOString();
+      var days = Math.floor((new Date(endTime) - new Date(d.created_at)) / (1000 * 60 * 60 * 24));
+      document.getElementById('duration').textContent = days + '天';
+
+      document.getElementById('faultLocation').textContent = d.fault_location;
+      document.getElementById('faultDesc').textContent = d.fault_description || '无';
+
+      // 故障照片
+      if (d.fault_photos && d.fault_photos.length > 0) {
+        document.getElementById('faultPhotosSection').style.display = 'block';
+        document.getElementById('faultPhotos').innerHTML = d.fault_photos.map(p =>
+          `<img src="${p.path}" onclick="Utils.previewImage('${p.path}')">`
+        ).join('');
+      }
+
+      // 完工照片
+      if (d.completion_photos && d.completion_photos.length > 0) {
+        document.getElementById('completionPhotosSection').style.display = 'block';
+        document.getElementById('completionPhotos').innerHTML = d.completion_photos.map(p =>
+          `<img src="${p.path}" onclick="Utils.previewImage('${p.path}')">`
+        ).join('');
+      }
+
+      // 状态时间线
+      const statusLabels = {
+        pending: '待处理',
+        processing: '处理中',
+        completed: '已完成',
+        confirmed: '已确认',
+        cancelled: '已取消'
+      };
+
+      document.getElementById('timeline').innerHTML = d.history.map((h, i) => `
+        <div class="timeline-item">
+          <div class="timeline-dot" style="background: ${i === d.history.length - 1 ? '#52c41a' : '#1890ff'}"></div>
+          <div class="timeline-content">
+            <div class="timeline-title">${statusLabels[h.status] || h.status}</div>
+            <div class="timeline-time">${Utils.formatTime(h.created_at)}</div>
+            ${h.note ? `<div class="timeline-note">${Utils.escapeHtml(h.note)}</div>` : ''}
+            ${h.operator_name ? `<div class="timeline-note">操作人：${Utils.escapeHtml(h.operator_name)}</div>` : ''}
+          </div>
+        </div>
+      `).join('');
+
+      // 确认按钮（只有已完成状态才显示，确认后工单关闭不可再操作）
+      if (d.status === 'completed') {
+        document.getElementById('actionSection').style.display = 'block';
+      }
+      // 取消按钮
+      if (d.status === 'pending' || d.status === 'processing') {
+        document.getElementById('cancelSection').style.display = 'block';
+      }
+    }
+
+    // 确认完工
+    window.confirmRepair = async function() {
+      if (!confirm('确认维修已完成吗？')) return;
+
+      const btn = document.getElementById('confirmBtn');
+      btn.disabled = true;
+      btn.textContent = '处理中...';
+
+      try {
+        await OwnerAPI.confirmRepair(repairId);
+        Utils.showToast('已确认完工！');
+        loadDetail();
+      } catch (err) {
+        Utils.showToast(err.message);
+        btn.disabled = false;
+        btn.textContent = '确认完工';
+      }
+    };
+
+    // 取消报修
+    window.cancelRepair = async function() {
+      if (!confirm('确定要取消此报修吗？取消后无法恢复。')) return;
+
+      const btn = document.getElementById('cancelBtn');
+      btn.disabled = true;
+      btn.textContent = '取消中...';
+
+      try {
+        await OwnerAPI.cancelRepair(repairId);
+        Utils.showToast('已取消报修');
+        loadDetail();
+      } catch (err) {
+        Utils.showToast(err.message);
+        btn.disabled = false;
+        btn.textContent = '取消报修';
+      }
+    };
+
+    // 认为未完工，打回重做
+    window.rejectRepair = async function() {
+      const note = document.getElementById('rejectNote').value.trim();
+      if (!note) {
+        Utils.showToast('请填写打回原因');
+        return;
+      }
+      if (!confirm('确认要打回此报修吗？物业将重新处理。')) return;
+
+      const btn = document.getElementById('rejectBtn');
+      btn.disabled = true;
+      btn.textContent = '打回中...';
+
+      try {
+        await OwnerAPI.rejectRepair(repairId, note);
+        Utils.showToast('已打回，物业将重新处理');
+        loadDetail();
+      } catch (err) {
+        Utils.showToast(err.message);
+        btn.disabled = false;
+        btn.textContent = '认为未完工，打回重做';
+      }
+    };
+
+    window.toggleTimeline = function(el) {
+      var content = document.getElementById('timelineContent');
+      var toggle = document.getElementById('timelineToggle');
+      if (content.style.display === 'none') {
+        content.style.display = 'block';
+        toggle.textContent = '▼ 点击收起';
+      } else {
+        content.style.display = 'none';
+        toggle.textContent = '▶ 点击展开';
+      }
+    };
+
+    loadDetail();
+  </script>
+</body>
+</html>

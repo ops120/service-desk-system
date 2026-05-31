@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>处理报修 - 通用报修系统</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="header">
+    <a href="manager_list.html" class="header-back">← 返回</a>
+    <h1>处理报修</h1>
+  </div>
+
+  <div style="padding: 16px; padding-bottom: 100px;">
+    <div style="background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span style="font-size: 16px; font-weight: 600;">报修信息</span>
+        <span id="statusTag" style="padding: 4px 10px; border-radius: 4px; font-size: 14px;">-</span>
+      </div>
+      <div style="font-size: 15px;">
+        <div style="margin-bottom: 8px;"><strong>业主：</strong><span id="ownerName">-</span></div>
+        <div style="margin-bottom: 8px;"><strong>房号：</strong><span id="unitNumber">-</span></div>
+        <div style="margin-bottom: 8px;"><strong>故障位置：</strong><span id="faultLocation">-</span></div>
+        <div style="margin-bottom: 8px;"><strong>故障描述：</strong><span id="faultDesc">-</span></div>
+        <div style="margin-bottom: 8px;"><strong>提交时间：</strong><span id="createTime">-</span></div>
+        <div style="margin-bottom: 8px;"><strong>处理时长：</strong><span id="duration">-</span></div>
+      </div>
+    </div>
+
+    <div id="faultPhotosSection" style="display: none; background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+      <div style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">故障照片</div>
+      <div id="faultPhotos" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;"></div>
+    </div>
+
+    <div id="completionPhotosSection" style="display: none; background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+      <div style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">完工照片</div>
+      <div id="completionPhotos" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;"></div>
+    </div>
+
+    <div style="background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+      <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px; cursor: pointer;" onclick="toggleTimeline()">处理进度 <span id="timelineToggle" style="font-size: 12px; color: #999; float: right;">▼ 点击收起</span></div>
+      <div id="timelineContent">
+        <div id="timeline"></div>
+      </div>
+    </div>
+
+    <div id="actionSection" style="background: #fff; border-radius: 8px; padding: 16px;">
+      <div style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">更新状态</div>
+
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-size: 14px; margin-bottom: 6px;">选择状态</label>
+        <select id="newStatus" style="width: 100%; padding: 12px; font-size: 15px; border: 1px solid #e8e8e8; border-radius: 6px;">
+          <option value="pending">待处理</option>
+          <option value="processing">处理中</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-size: 14px; margin-bottom: 6px;">备注</label>
+        <input type="text" id="note" placeholder="可选，添加处理说明" style="width: 100%; padding: 12px; font-size: 15px; border: 1px solid #e8e8e8; border-radius: 6px;">
+      </div>
+
+      <button onclick="updateStatus()" style="width: 100%; padding: 14px; font-size: 16px; background: #1890ff; color: #fff; border: none; border-radius: 8px; margin-bottom: 16px;">更新状态</button>
+
+      <div style="margin-top: 16px;">
+        <div style="background: #fff7e6; border: 1px solid #faad14; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; color: #d48806;">
+          ⚠️ 完成维修后，必须上传完工照片才能结单
+        </div>
+        <label style="display: block; font-size: 14px; margin-bottom: 6px;">上传完工照片 <span style="color: #ff4d4f;">* 必填</span></label>
+        <div id="photoUpload" style="border: 2px dashed #e8e8e8; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer;">
+          <div style="font-size: 24px;">📷</div>
+          <div style="font-size: 14px; color: #999; margin-top: 4px;">点击上传完工照片（至少1张）</div>
+        </div>
+        <input type="file" id="photoInput" accept="image/*" multiple style="display: none;">
+        <div id="photoPreview" style="margin-top: 12px;"></div>
+      </div>
+
+      <button id="uploadBtn" onclick="uploadPhotos()" style="display: none; width: 100%; padding: 14px; font-size: 16px; background: #52c41a; color: #fff; border: none; border-radius: 8px; margin-top: 12px;">上传完工照片并完成</button>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    checkAuth();
+    const urlParams = new URLSearchParams(window.location.search);
+    const repairId = urlParams.get('id');
+
+    if (!repairId) {
+      Utils.showToast('参数错误');
+      location.href = 'manager_list.html';
+    }
+
+    let repairData = null;
+    let selectedPhotos = [];
+
+    async function loadDetail() {
+      try {
+        repairData = await ManagerAPI.getRepairDetail(repairId);
+        renderDetail();
+      } catch (err) {
+        Utils.showToast(err.message);
+        setTimeout(() => history.back(), 1000);
+      }
+    }
+
+    function renderDetail() {
+      const d = repairData;
+      const status = Utils.getStatusTag(d.status);
+
+      document.getElementById('statusTag').textContent = status.label;
+      document.getElementById('statusTag').className = status.class;
+
+      document.getElementById('ownerName').textContent = d.owner_name || '业主';
+      document.getElementById('unitNumber').textContent = d.unit_number;
+      document.getElementById('faultLocation').textContent = d.fault_location;
+      document.getElementById('faultDesc').textContent = d.fault_description || '无';
+      document.getElementById('createTime').textContent = Utils.formatTime(d.created_at);
+
+      var endTime = d.status === 'confirmed' || d.status === 'completed' || d.status === 'cancelled'
+        ? d.updated_at
+        : new Date().toISOString();
+      var days = Math.floor((new Date(endTime) - new Date(d.created_at)) / (1000 * 60 * 60 * 24));
+      document.getElementById('duration').textContent = days + '天';
+
+      document.getElementById('newStatus').value = d.status;
+
+      if (d.fault_photos && d.fault_photos.length > 0) {
+        document.getElementById('faultPhotosSection').style.display = 'block';
+        document.getElementById('faultPhotos').innerHTML = d.fault_photos.map(p =>
+          `<img src="${p.path}" style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; cursor: pointer;" onclick="Utils.previewImage('${p.path}')">`
+        ).join('');
+      }
+
+      if (d.completion_photos && d.completion_photos.length > 0) {
+        document.getElementById('completionPhotosSection').style.display = 'block';
+        document.getElementById('completionPhotos').innerHTML = d.completion_photos.map(p =>
+          `<img src="${p.path}" style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; cursor: pointer;" onclick="Utils.previewImage('${p.path}')">`
+        ).join('');
+      }
+
+      const statusLabels = { pending: '待处理', processing: '处理中', completed: '已完成', confirmed: '已确认' };
+      document.getElementById('timeline').innerHTML = d.history.map((h, i) => `
+        <div style="display: flex; margin-bottom: 12px; position: relative;">
+          <div style="width: 12px; height: 12px; border-radius: 50%; background: ${i === d.history.length - 1 ? '#52c41a' : '#1890ff'}; flex-shrink: 0; margin-right: 12px;"></div>
+          <div style="flex: 1;">
+            <div style="font-size: 15px; font-weight: 600;">${statusLabels[h.status] || h.status}</div>
+            <div style="font-size: 13px; color: #999; margin-top: 2px;">${Utils.formatTime(h.created_at)}</div>
+            ${h.note ? `<div style="font-size: 14px; margin-top: 4px;">${Utils.escapeHtml(h.note)}</div>` : ''}
+            ${h.operator_name ? `<div style="font-size: 13px; color: #666; margin-top: 2px;">操作人：${Utils.escapeHtml(h.operator_name)}</div>` : ''}
+          </div>
+        </div>
+      `).join('');
+
+      if (d.status === 'confirmed') {
+        document.getElementById('actionSection').innerHTML = `
+          <div style="text-align: center; padding: 20px; color: #52c41a; font-size: 16px; font-weight: 600;">
+            ✅ 此报修已由业主确认完成
+          </div>
+        `;
+      }
+    }
+
+    document.getElementById('photoUpload').addEventListener('click', () => document.getElementById('photoInput').click());
+
+    document.getElementById('photoInput').addEventListener('change', (e) => {
+      selectedPhotos = Array.from(e.target.files);
+      if (selectedPhotos.length > 0) {
+        document.getElementById('uploadBtn').style.display = 'block';
+        document.getElementById('photoPreview').innerHTML = selectedPhotos.map((file, i) => `
+          <div style="position: relative; display: inline-block; margin-right: 8px; margin-bottom: 8px;">
+            <img src="${URL.createObjectURL(file)}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 6px;">
+            <button onclick="removePhoto(${i})" style="position: absolute; top: -8px; right: -8px; width: 20px; height: 20px; border-radius: 50%; background: #ff4d4f; color: #fff; border: none; font-size: 12px;">×</button>
+          </div>
+        `).join('');
+      }
+    });
+
+    window.removePhoto = function(index) {
+      selectedPhotos.splice(index, 1);
+      if (selectedPhotos.length === 0) {
+        document.getElementById('uploadBtn').style.display = 'none';
+        document.getElementById('photoPreview').innerHTML = '';
+      } else {
+        document.getElementById('photoPreview').innerHTML = selectedPhotos.map((file, i) => `
+          <div style="position: relative; display: inline-block; margin-right: 8px; margin-bottom: 8px;">
+            <img src="${URL.createObjectURL(file)}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 6px;">
+            <button onclick="removePhoto(${i})" style="position: absolute; top: -8px; right: -8px; width: 20px; height: 20px; border-radius: 50%; background: #ff4d4f; color: #fff; border: none; font-size: 12px;">×</button>
+          </div>
+        `).join('');
+      }
+    };
+
+    async function uploadPhotos() {
+      if (selectedPhotos.length === 0) {
+        Utils.showToast('请先选择至少1张完工照片');
+        return;
+      }
+      const btn = document.getElementById('uploadBtn');
+      btn.disabled = true;
+      btn.textContent = '上传中...';
+      try {
+        await ManagerAPI.uploadCompletionPhotos(repairId, selectedPhotos);
+        Utils.showToast('完工照片上传成功！');
+        selectedPhotos = [];
+        document.getElementById('photoPreview').innerHTML = '';
+        document.getElementById('uploadBtn').style.display = 'none';
+        loadDetail();
+      } catch (err) {
+        Utils.showToast(err.message);
+        btn.disabled = false;
+        btn.textContent = '上传完工照片并完成';
+      }
+    }
+
+    async function updateStatus() {
+      const status = document.getElementById('newStatus').value;
+      const note = document.getElementById('note').value.trim();
+      try {
+        await ManagerAPI.updateStatus(repairId, status, note);
+        Utils.showToast('状态已更新！');
+        loadDetail();
+      } catch (err) {
+        Utils.showToast(err.message);
+      }
+    }
+
+    loadDetail();
+
+    window.toggleTimeline = function() {
+      var content = document.getElementById('timelineContent');
+      var toggle = document.getElementById('timelineToggle');
+      if (content.style.display === 'none') {
+        content.style.display = 'block';
+        toggle.textContent = '▼ 点击收起';
+      } else {
+        content.style.display = 'none';
+        toggle.textContent = '▶ 点击展开';
+      }
+    };
+  </script>
+</body>
+</html>

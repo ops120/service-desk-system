@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>提交报修 - 通用报修系统</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="header">
+    <a href="owner.html" class="header-back">← 返回</a>
+    <h1>提交报修</h1>
+  </div>
+
+  <div class="container" style="padding-top: 20px; padding-bottom: 80px;">
+    <form id="repairForm">
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label required">房号</label>
+          <input type="text" id="unit_number" class="form-input" placeholder="如：1栋101室" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required">故障位置</label>
+          <input type="text" id="fault_location" class="form-input" placeholder="如：厨房水龙头、卧室灯泡" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">故障描述</label>
+          <textarea id="fault_description" class="form-input" placeholder="请详细描述故障情况（选填）"></textarea>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label">故障照片</label>
+          <div class="photo-upload" id="photoUpload">
+            <div class="photo-upload-icon">📷</div>
+            <div class="photo-upload-text">点击上传照片</div>
+            <input type="file" id="photoInput" accept="image/*" multiple style="display: none;">
+          </div>
+          <div class="photo-preview" id="photoPreview"></div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block" style="margin-bottom: 20px;">提交报修</button>
+    </form>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    checkAuth();
+
+    // 自动填充注册时的房号
+    var currentUser = Utils.getUser();
+    if (currentUser && currentUser.unit_number) {
+      document.getElementById('unit_number').value = currentUser.unit_number;
+    }
+
+    let uploadedPhotos = [];
+    const photoUpload = document.getElementById('photoUpload');
+    const photoInput = document.getElementById('photoInput');
+    const photoPreview = document.getElementById('photoPreview');
+
+    // 点击上传区域
+    photoUpload.addEventListener('click', () => photoInput.click());
+
+    // 文件选择
+    photoInput.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+
+      Utils.showToast('上传中...');
+
+      try {
+        const result = await OwnerAPI.uploadFaultPhotos(files);
+        if (result.success) {
+          uploadedPhotos = [...uploadedPhotos, ...result.photos];
+          renderPhotoPreview();
+          Utils.showToast('上传成功');
+        }
+      } catch (err) {
+        Utils.showToast(err.message);
+      }
+
+      photoInput.value = '';
+    });
+
+    // 渲染照片预览
+    function renderPhotoPreview() {
+      photoPreview.innerHTML = uploadedPhotos.map((photo, index) => `
+        <div class="photo-preview-item">
+          <img src="${photo.path}" alt="故障照片" onclick="Utils.previewImage('${photo.path}')">
+          <button type="button" class="photo-preview-delete" onclick="deletePhoto(${index})">×</button>
+        </div>
+      `).join('');
+    }
+
+    // 删除照片
+    window.deletePhoto = function(index) {
+      uploadedPhotos.splice(index, 1);
+      renderPhotoPreview();
+    };
+
+    // 表单提交
+    document.getElementById('repairForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const unit_number = document.getElementById('unit_number').value.trim();
+      const fault_location = document.getElementById('fault_location').value.trim();
+      const fault_description = document.getElementById('fault_description').value.trim();
+
+      if (!unit_number || !fault_location) {
+        Utils.showToast('请填写必填项');
+        return;
+      }
+
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = '提交中...';
+
+      try {
+        const result = await OwnerAPI.createRepair({
+          unit_number,
+          fault_location,
+          fault_description,
+          fault_photos: uploadedPhotos
+        });
+
+        if (result.message === '报修提交成功' || result.repair) {
+          Utils.showToast('报修提交成功！');
+          setTimeout(() => {
+            location.href = 'owner_list.html';
+          }, 1000);
+        }
+      } catch (err) {
+        Utils.showToast(err.message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = '提交报修';
+      }
+    });
+  </script>
+</body>
+</html>
