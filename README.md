@@ -91,6 +91,53 @@ confirmed（已确认）
 
 ---
 
+## 部署参考（Nginx + HTTPS）
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name your-domain.com;
+
+    ssl_certificate     /etc/nginx/ssl/your-cert.pem;
+    ssl_certificate_key /etc/nginx/ssl/your-cert.key;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    root /path/to/service-desk-system/frontend;
+    index index.html;
+
+    # API 请求代理到后端 Node
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # 上传文件代理到后端（否则图片无法加载）
+    location /uploads/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # 前端静态文件
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+> ⚠️ 注意：`location /uploads/` 代理规则不可省略，否则用户上传的证件照、报修照片等无法加载。
+
+---
+
 ## 常见问题
 
 **Q: 业主注册后无法登录？**

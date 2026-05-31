@@ -10,6 +10,9 @@ body{margin:0;font-family:Arial,sans-serif;background:#f5f5f5}
 .header{background:#1890ff;color:#fff;padding:16px;text-align:center;position:relative}
 .header a{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:#fff;text-decoration:none;font-size:20px}
 .header h1{margin:0;font-size:18px}
+.header-right{position:absolute;right:16px;top:50%;transform:translateY(-50%);display:flex;gap:12px;}
+.header-right a{color:#fff;text-decoration:none;font-size:13px;}
+.header-links a{position:static !important;left:auto !important;transform:none !important;}
 /* 主选项卡 */
 .main-tabs{padding:12px 12px 0;max-width:750px;margin:0 auto;display:flex;gap:8px;}
 .main-tab{flex:1;padding:10px 0;text-align:center;background:#fff;border-radius:8px;border:2px solid transparent;font-size:14px;font-weight:600;color:#666;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.1);transition:all 0.2s;}
@@ -84,10 +87,14 @@ body{margin:0;font-family:Arial,sans-serif;background:#f5f5f5}
 </style>
 </head>
 <body>
-<div class="header">
-<a href="javascript:void(0)" onclick="Utils.logout()">🚪 退出</a>
-<h1 id="pageTitle" style="flex:1;">管理后台</h1>
-<span onclick="showHelp()" style="color:#fff;cursor:pointer;font-size:20px;margin-right:8px;">❓</span>
+<div class="header" style="padding-bottom:8px;">
+  <h1 id="pageTitle" style="margin-bottom:4px;">管理后台</h1>
+  <div class="header-links" style="font-size:12px;opacity:0.85;">
+    <a href="change_password.html" style="color:#fff;text-decoration:none;">修改密码</a>
+    <span style="margin:0 6px;color:rgba(255,255,255,0.5);">|</span>
+    <a href="javascript:Utils.logout()" style="color:#fff;text-decoration:none;">退出</a>
+  </div>
+  <span onclick="showHelp()" style="color:#fff;cursor:pointer;font-size:20px;position:absolute;right:12px;top:50%;transform:translateY(-50%);">❓</span>
 </div>
 
 <!-- 帮助弹窗 -->
