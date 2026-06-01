@@ -7,6 +7,11 @@ const fs = require('fs');
 const { initDB, queries, hashPassword, verifyPassword, generateToken, verifyToken, createCaptcha, verifyCaptcha, isAccountLocked, getLockRemainingSeconds, recordFailedAttempt, clearFailedAttempts, getRemainingAttempts, MAX_ATTEMPTS, audit } = require('./database');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
+const { Jimp, loadFont, measureText, measureTextHeight } = require('jimp');
+
+// 水印字体路径（Jimp 1.x 必须用绝对路径加载）
+const FONT_16_BLACK = path.join(__dirname, 'node_modules', '@jimp', 'plugin-print', 'dist', 'fonts', 'open-sans', 'open-sans-16-black', 'open-sans-16-black.fnt');
+const FONT_16_WHITE = path.join(__dirname, 'node_modules', '@jimp', 'plugin-print', 'dist', 'fonts', 'open-sans', 'open-sans-16-white', 'open-sans-16-white.fnt');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,7 +37,15 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const ext = path.extname(file.originalname);
-    cb(null, `${uniqueSuffix}${ext}`);
+    const filename = `${uniqueSuffix}${ext}`;
+    const filePath = `/uploads/${filename}`;
+
+    // 水印处理（异步，不阻塞 cb，不影响上传流程）
+    watermarkImage(filePath, getWatermarkUsername(req)).catch(err => {
+      console.error('Watermark async error:', err);
+    });
+
+    cb(null, filename);
   }
 });
 
@@ -75,6 +88,63 @@ const authenticate = (req, res, next) => {
   if (!user) return res.status(401).json({ error: '登录已过期，请重新登录' });
   req.user = user;
   next();
+};
+
+// ============ IMAGE WATERMARK ============
+
+// 解析水印用户名（从 JWT）
+const getWatermarkUsername = (req) => {
+  if (req.user && req.user.username) return req.user.username;
+  return '访客';
+};
+
+// 添加水印到图片文件（覆盖原文件）
+// 降级策略：处理失败时保留原文件，不阻塞上传
+const watermarkImage = async (filePath, username) => {
+  try {
+    const fullPath = path.join(__dirname, filePath);
+    const ext = path.extname(fullPath).toLowerCase();
+
+    // GIF 不处理
+    if (ext === '.gif') return;
+
+    const img = await Jimp.read(fullPath);
+    const imgW = img.width;
+    const imgH = img.height;
+
+    // 超大图跳过水印（> 4096px）
+    if (imgW > 4096 || imgH > 4096) {
+      console.warn(`Watermark skip: ${filePath} (${imgW}x${imgH} > 4096)`);
+      return;
+    }
+
+    // 水印文字
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const text = `${username} | ${dateStr}`;
+
+    // Jimp 1.x API：loadFont/measureText/measureTextHeight 为独立函数
+    const [fontBlack, fontWhite] = await Promise.all([
+      loadFont(FONT_16_BLACK),
+      loadFont(FONT_16_WHITE),
+    ]);
+
+    const textWidth = measureText(fontWhite, text);
+    const textHeight = measureTextHeight(fontWhite, text, imgW);
+    const padding = 16;
+    const posX = imgW - textWidth - padding;
+    const posY = imgH - textHeight - padding;
+
+    // 绘制顺序：黑色描边(右下偏移) → 白色填充
+    img.print({ font: fontBlack, x: posX + 1, y: posY + 1, text });
+    img.print({ font: fontWhite, x: posX, y: posY, text });
+
+    await img.write(fullPath);
+    console.log(`Watermark added: ${filePath}`);
+  } catch (err) {
+    // 降级：处理失败保留原文件，不阻塞上传
+    console.error(`Watermark failed for ${filePath}:`, err.message);
+  }
 };
 
 // 权限检查：manager和admin都可以访问报修管理
