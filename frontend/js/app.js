@@ -4,7 +4,9 @@
 const API_BASE = window.location.protocol + '//' + window.location.host + '/api';
 document.title = API_BASE + ' - ' + document.title;
 
-// 工具函数
+// 全局token获取函数（供HTML模板中 img src="...?token=${getToken()}" 使用）
+const getToken = () => Utils?.getToken() || localStorage.getItem('token') || '';
+
 const Utils = {
   // 显示Toast提示
   showToast(message, duration = 2000) {

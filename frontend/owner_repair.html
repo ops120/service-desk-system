@@ -90,7 +90,7 @@
     function renderPhotoPreview() {
       photoPreview.innerHTML = uploadedPhotos.map((photo, index) => `
         <div class="photo-preview-item">
-          <img src="${photo.path}" alt="故障照片" onclick="Utils.previewImage('${photo.path}')">
+          <img src="${photo.path}?token=${getToken()}" alt="故障照片" onclick="Utils.previewImage('${photo.path}?token=${getToken()}')">
           <button type="button" class="photo-preview-delete" onclick="deletePhoto(${index})">×</button>
         </div>
       `).join('');

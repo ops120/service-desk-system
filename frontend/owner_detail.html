@@ -128,7 +128,7 @@
       if (d.fault_photos && d.fault_photos.length > 0) {
         document.getElementById('faultPhotosSection').style.display = 'block';
         document.getElementById('faultPhotos').innerHTML = d.fault_photos.map(p =>
-          `<img src="${p.path}" onclick="Utils.previewImage('${p.path}')">`
+          `<img src="${p.path}?token=${getToken()}" onclick="Utils.previewImage('${p.path}?token=${getToken()}')">`
         ).join('');
       }
 
@@ -136,7 +136,7 @@
       if (d.completion_photos && d.completion_photos.length > 0) {
         document.getElementById('completionPhotosSection').style.display = 'block';
         document.getElementById('completionPhotos').innerHTML = d.completion_photos.map(p =>
-          `<img src="${p.path}" onclick="Utils.previewImage('${p.path}')">`
+          `<img src="${p.path}?token=${getToken()}" onclick="Utils.previewImage('${p.path}?token=${getToken()}')">`
         ).join('');
       }
 

@@ -88,8 +88,20 @@ const authenticate = (req, res, next) => {
   next();
 };
 
-// 图片访问鉴权路由（需登录）
-app.get('/uploads/:filename', authenticate, (req, res) => {
+// 图片访问鉴权路由（需登录，token 可放 Authorization header 或 ?token= query 参数）
+app.get('/uploads/:filename', (req, res, next) => {
+  // 支持 ?token=xxx 方式（便于 <img src> 直接使用）
+  if (req.query.token) {
+    const payload = verifyToken(req.query.token);
+    if (!payload) return res.status(401).json({ error: '登录已过期' });
+    const user = queries.findUserById(payload.userId);
+    if (!user) return res.status(401).json({ error: '登录已过期' });
+    req.user = user;
+    return next();
+  }
+  // 否则走标准 Bearer header 方式
+  authenticate(req, res, next);
+}, (req, res) => {
   const filePath = path.join(uploadsDir, req.params.filename);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
   res.sendFile(filePath);
