@@ -35,15 +35,7 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const ext = path.extname(file.originalname);
-    const filename = `${uniqueSuffix}${ext}`;
-    const filePath = `/uploads/${filename}`;
-
-    // 水印处理（异步，不阻塞 cb，不影响上传流程）
-    watermarkImage(filePath, getWatermarkUsername(req)).catch(err => {
-      console.error('Watermark async error:', err);
-    });
-
-    cb(null, filename);
+    cb(null, `${uniqueSuffix}${ext}`);
   }
 });
 
@@ -111,8 +103,7 @@ app.get('/uploads/:filename', (req, res, next) => {
 
 // 解析水印用户名（从 JWT）
 const getWatermarkUsername = (req) => {
-  if (req.user && req.user.username) return req.user.username;
-  return '访客';
+  return req.user?.username || '访客';
 };
 
 // 添加水印到图片文件（覆盖原文件）
@@ -210,6 +201,10 @@ app.post('/api/auth/register', registerLimiter, (req, res) => {
 
     if (!username || !password) {
       return res.status(400).json({ error: '请填写用户名和密码' });
+    }
+    // 用户名只允许英文和数字
+    if (!/^[a-zA-Z0-9]+$/.test(username)) {
+      return res.status(400).json({ error: '用户名只能使用英文字母和数字' });
     }
     if (!phone) {
       return res.status(400).json({ error: '请填写手机号' });
@@ -347,6 +342,11 @@ app.post('/api/upload/temp', registerLimiter, upload.single('photo'), (req, res)
       return res.status(400).json({ error: '请上传照片' });
     }
     const filePath = `/uploads/${req.file.filename}`;
+    // 水印：注册上传时从 req.body.username 取（此时用户还未创建，req.user 为空）
+    const username = req.body.username || '访客';
+    watermarkImage(filePath, username).catch(err => {
+      console.error('Watermark async error:', err);
+    });
     res.json({ success: true, path: filePath });
   } catch (err) {
     console.error('Upload error:', err);
@@ -363,6 +363,11 @@ app.post('/api/users/upload-document', authenticate, upload.single('photo'), (re
 
     const { document_type } = req.body; // 'certificate' or 'property'
     const filePath = `/uploads/${req.file.filename}`;
+
+    // 水印
+    watermarkImage(filePath, req.user.username).catch(err => {
+      console.error('Watermark async error:', err);
+    });
 
     // 更新用户证件信息
     const user = queries.findUserById(req.user.id);
@@ -576,7 +581,11 @@ app.post('/api/repairs/:id/photos', authenticate, upload.array('photos', 5), (re
     if (!order) return res.status(404).json({ error: '报修单不存在' });
 
     req.files.forEach(file => {
-      queries.insertPhoto({ repair_order_id: order.id, photo_type: 'completion', file_path: `/uploads/${file.filename}` });
+      const filePath = `/uploads/${file.filename}`;
+      watermarkImage(filePath, req.user.username).catch(err => {
+        console.error('Watermark async error:', err);
+      });
+      queries.insertPhoto({ repair_order_id: order.id, photo_type: 'completion', file_path: filePath });
     });
     queries.updateRepairOrderStatus(order.id, 'completed');
     queries.insertStatusHistory({ repair_order_id: order.id, status: 'completed', note: '物业上传了完工照片', operator_id: req.user.id });
@@ -590,7 +599,13 @@ app.post('/api/repairs/:id/photos', authenticate, upload.array('photos', 5), (re
 
 app.post('/api/repairs/upload-fault-photos', authenticate, requireRole('owner'), upload.array('photos', 5), (req, res) => {
   try {
-    const photos = req.files.map(file => ({ filename: file.filename, path: `/uploads/${file.filename}` }));
+    const photos = req.files.map(file => {
+      const filePath = `/uploads/${file.filename}`;
+      watermarkImage(filePath, req.user.username).catch(err => {
+        console.error('Watermark async error:', err);
+      });
+      return { filename: file.filename, path: filePath };
+    });
     res.json({ success: true, photos });
   } catch (err) {
     console.error('Upload fault photos error:', err);
