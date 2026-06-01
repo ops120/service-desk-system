@@ -192,7 +192,7 @@
             if (r.fault_photos && r.fault_photos.length > 0) {
               photos = '<div class="owner-sec-photos">' +
                 r.fault_photos.slice(0,3).map(function(p) {
-                  return '<img src="'+p.path+'" onclick="Utils.previewImage(\''+p.path+'\')">';
+                  return '<img src="'+p.path+'?token='+getToken()+'" onclick="Utils.previewImage(\''+p.path+'?token='+getToken()+'\')">';
                 }).join('') +
                 (r.fault_photos.length > 3 ? '<div class="owner-sec-more">+'+(r.fault_photos.length-3)+'</div>' : '') +
               '</div>';

@@ -384,7 +384,8 @@ function renderUsers(users) {
 function fixPath(p) {
   if (!p) return '';
   if (p.startsWith('http')) return p;
-  return location.protocol + '//' + location.host + p;
+  const token = getToken();
+  return location.protocol + '//' + location.host + p + '?token=' + token;
 }
 
 function escapeHtml(str) {

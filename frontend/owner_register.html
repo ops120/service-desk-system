@@ -238,6 +238,7 @@
           console.log('[注册] 上传员工证件:', certificatePhoto.name);
           const certForm = new FormData();
           certForm.append('photo', certificatePhoto);
+          certForm.append('username', username);
 
           const certRes = await fetch(location.protocol + '//' + location.host + '/api/upload/temp', { method: 'POST', body: certForm });
 
@@ -257,6 +258,7 @@
           console.log('[注册] 上传房产证:', propertyPhoto.name);
           const propForm = new FormData();
           propForm.append('photo', propertyPhoto);
+          propForm.append('username', username);
 
           const propRes = await fetch(location.protocol + '//' + location.host + '/api/upload/temp', { method: 'POST', body: propForm });
 

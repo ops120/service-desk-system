@@ -87,7 +87,7 @@
               </div>
               ${repair.fault_photos && repair.fault_photos.length > 0 ? `
                 <div style="margin-top: 8px; display: flex; gap: 4px;">
-                  ${repair.fault_photos.slice(0, 3).map(p => `<img src="${p.path}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`).join('')}
+                  ${repair.fault_photos.slice(0, 3).map(p => `<img src="${p.path}?token=${getToken()}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`).join('')}
                   ${repair.fault_photos.length > 3 ? `<div style="width: 40px; height: 40px; background: #f0f0f0; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #666;">+${repair.fault_photos.length - 3}</div>` : ''}
                 </div>
               ` : ''}

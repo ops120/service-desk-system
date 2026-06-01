@@ -194,7 +194,7 @@
           const days = Math.floor((new Date() - new Date(r.created_at)) / (1000*60*60*24));
           const photos = r.fault_photos && r.fault_photos.length > 0
             ? '<div class="kanban-sec-photos">' +
-                r.fault_photos.slice(0,3).map(p => '<img src="'+p.path+'" onclick="Utils.previewImage(\''+p.path+'\')">').join('') +
+                r.fault_photos.slice(0,3).map(p => '<img src="'+p.path+'?token='+getToken()+'" onclick="Utils.previewImage(\''+p.path+'?token='+getToken()+'\')">').join('') +
                 (r.fault_photos.length > 3 ? '<div class="kanban-sec-more">+'+(r.fault_photos.length-3)+'</div>' : '') +
               '</div>'
             : '';

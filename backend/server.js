@@ -7,6 +7,11 @@ const fs = require('fs');
 const { initDB, queries, hashPassword, verifyPassword, generateToken, verifyToken, createCaptcha, verifyCaptcha, isAccountLocked, getLockRemainingSeconds, recordFailedAttempt, clearFailedAttempts, getRemainingAttempts, MAX_ATTEMPTS, audit } = require('./database');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
+const { Jimp, loadFont, measureText, measureTextHeight } = require('jimp');
+
+// 水印字体路径（Jimp 1.x 必须用绝对路径加载）
+const FONT_16_BLACK = path.join(__dirname, 'node_modules', '@jimp', 'plugin-print', 'dist', 'fonts', 'open-sans', 'open-sans-16-black', 'open-sans-16-black.fnt');
+const FONT_16_WHITE = path.join(__dirname, 'node_modules', '@jimp', 'plugin-print', 'dist', 'fonts', 'open-sans', 'open-sans-16-white', 'open-sans-16-white.fnt');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,8 +25,6 @@ const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
-app.use('/uploads', express.static(uploadsDir));
-
 // Serve frontend static files
 const frontendDir = path.join(__dirname, '..', 'frontend');
 app.use(express.static(frontendDir));
@@ -77,6 +80,97 @@ const authenticate = (req, res, next) => {
   next();
 };
 
+// 图片访问鉴权路由（需登录，token 可放 Authorization header 或 ?token= query 参数）
+app.get('/uploads/:filename', (req, res, next) => {
+  // 支持 ?token=xxx 方式（便于 <img src> 直接使用）
+  if (req.query.token) {
+    const payload = verifyToken(req.query.token);
+    if (!payload) return res.status(401).json({ error: '登录已过期' });
+    const user = queries.findUserById(payload.userId);
+    if (!user) return res.status(401).json({ error: '登录已过期' });
+    req.user = user;
+    return next();
+  }
+  // 否则走标准 Bearer header 方式
+  authenticate(req, res, next);
+}, (req, res) => {
+  const filePath = path.join(uploadsDir, req.params.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
+  res.sendFile(filePath);
+});
+
+// ============ IMAGE WATERMARK ============
+
+// 解析水印用户名（从 JWT）
+const getWatermarkUsername = (req) => {
+  return req.user?.username || '访客';
+};
+
+// 添加水印到图片文件（覆盖原文件）
+// 降级策略：处理失败时保留原文件，不阻塞上传
+const watermarkImage = async (filePath, username) => {
+  try {
+    const fullPath = path.resolve(__dirname, filePath.replace(/^\//, ''));
+    const ext = path.extname(fullPath).toLowerCase();
+
+    // GIF 不处理
+    if (ext === '.gif') return;
+
+    // 等待文件落盘（multer cb 后 write 可能还未完成）
+    let buffer;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        buffer = await fs.promises.readFile(fullPath);
+        break;
+      } catch (err) {
+        if (err.code === 'ENOENT' && attempt < 4) {
+          await new Promise(r => setTimeout(r, 100));
+          continue;
+        }
+        throw err;
+      }
+    }
+    if (!buffer) return;
+
+    const img = await Jimp.read(buffer);
+    const imgW = img.width;
+    const imgH = img.height;
+
+    // 超大图跳过水印（> 4096px）
+    if (imgW > 4096 || imgH > 4096) {
+      console.warn(`Watermark skip: ${filePath} (${imgW}x${imgH} > 4096)`);
+      return;
+    }
+
+    // 水印文字
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const text = `${username} | ${dateStr}`;
+
+    // Jimp 1.x API：loadFont/measureText/measureTextHeight 为独立函数
+    const [fontBlack, fontWhite] = await Promise.all([
+      loadFont(FONT_16_BLACK),
+      loadFont(FONT_16_WHITE),
+    ]);
+
+    const textWidth = measureText(fontWhite, text);
+    const textHeight = measureTextHeight(fontWhite, text, imgW);
+    const padding = 16;
+    const posX = imgW - textWidth - padding;
+    const posY = imgH - textHeight - padding;
+
+    // 绘制顺序：黑色描边(右下偏移) → 白色填充
+    img.print({ font: fontBlack, x: posX + 1, y: posY + 1, text });
+    img.print({ font: fontWhite, x: posX, y: posY, text });
+
+    await img.write(fullPath);
+    console.log(`Watermark added: ${filePath}`);
+  } catch (err) {
+    // 降级：处理失败保留原文件，不阻塞上传
+    console.error(`Watermark failed for ${filePath}:`, err.message);
+  }
+};
+
 // 权限检查：manager和admin都可以访问报修管理
 const requireManager = (req, res, next) => {
   if (!['manager', 'admin'].includes(req.user.role)) {
@@ -107,6 +201,10 @@ app.post('/api/auth/register', registerLimiter, (req, res) => {
 
     if (!username || !password) {
       return res.status(400).json({ error: '请填写用户名和密码' });
+    }
+    // 用户名只允许英文和数字
+    if (!/^[a-zA-Z0-9]+$/.test(username)) {
+      return res.status(400).json({ error: '用户名只能使用英文字母和数字' });
     }
     if (!phone) {
       return res.status(400).json({ error: '请填写手机号' });
@@ -250,6 +348,11 @@ app.post('/api/upload/temp', registerLimiter, upload.single('photo'), (req, res)
       return res.status(400).json({ error: '请上传照片' });
     }
     const filePath = `/uploads/${req.file.filename}`;
+    // 水印：注册上传时从 req.body.username 取（此时用户还未创建，req.user 为空）
+    const username = req.body.username || '访客';
+    watermarkImage(filePath, username).catch(err => {
+      console.error('Watermark async error:', err);
+    });
     res.json({ success: true, path: filePath });
   } catch (err) {
     console.error('Upload error:', err);
@@ -266,6 +369,11 @@ app.post('/api/users/upload-document', authenticate, upload.single('photo'), (re
 
     const { document_type } = req.body; // 'certificate' or 'property'
     const filePath = `/uploads/${req.file.filename}`;
+
+    // 水印
+    watermarkImage(filePath, req.user.username).catch(err => {
+      console.error('Watermark async error:', err);
+    });
 
     // 更新用户证件信息
     const user = queries.findUserById(req.user.id);
@@ -505,7 +613,11 @@ app.post('/api/repairs/:id/photos', authenticate, upload.array('photos', 5), (re
     if (!order) return res.status(404).json({ error: '报修单不存在' });
 
     req.files.forEach(file => {
-      queries.insertPhoto({ repair_order_id: order.id, photo_type: 'completion', file_path: `/uploads/${file.filename}` });
+      const filePath = `/uploads/${file.filename}`;
+      watermarkImage(filePath, req.user.username).catch(err => {
+        console.error('Watermark async error:', err);
+      });
+      queries.insertPhoto({ repair_order_id: order.id, photo_type: 'completion', file_path: filePath });
     });
     queries.updateRepairOrderStatus(order.id, 'completed');
     queries.insertStatusHistory({ repair_order_id: order.id, status: 'completed', note: '物业上传了完工照片', operator_id: req.user.id });
@@ -519,7 +631,13 @@ app.post('/api/repairs/:id/photos', authenticate, upload.array('photos', 5), (re
 
 app.post('/api/repairs/upload-fault-photos', authenticate, requireRole('owner'), upload.array('photos', 5), (req, res) => {
   try {
-    const photos = req.files.map(file => ({ filename: file.filename, path: `/uploads/${file.filename}` }));
+    const photos = req.files.map(file => {
+      const filePath = `/uploads/${file.filename}`;
+      watermarkImage(filePath, req.user.username).catch(err => {
+        console.error('Watermark async error:', err);
+      });
+      return { filename: file.filename, path: filePath };
+    });
     res.json({ success: true, photos });
   } catch (err) {
     console.error('Upload fault photos error:', err);
