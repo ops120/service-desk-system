@@ -73,6 +73,13 @@ body{margin:0;font-family:Arial,sans-serif;background:#f5f5f5}
 .btn-approve{background:#52c41a;color:#fff}
 .btn-reject{background:#ff4d4f;color:#fff}
 .btn:disabled{opacity:0.5;cursor:not-allowed}
+/* 开关样式 */
+.toggle-switch{position:relative;display:inline-block;width:44px;height:24px;vertical-align:middle}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:24px;transition:.3s}
+.toggle-slider:before{position:absolute;content:'';height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+.toggle-switch input:checked+.toggle-slider{background:#52c41a}
+.toggle-switch input:checked+.toggle-slider:before{transform:translateX(20px)}
 /* 系统名称设置 */
 .sysname-bar{padding:8px 12px;max-width:750px;margin:0 auto 8px;display:flex;align-items:center;gap:8px}
 .sysname-bar input{flex:1;padding:6px 10px;border:1px solid #e8e8e8;border-radius:4px;font-size:13px}
@@ -126,6 +133,20 @@ body{margin:0;font-family:Arial,sans-serif;background:#f5f5f5}
 <div class="sysname-bar">
 <input type="text" id="sysnameInput" placeholder="系统名称" maxlength="20">
 <button onclick="saveSysname()">保存</button>
+</div>
+
+<!-- 自动审核开关（测试用） -->
+<div class="sysname-bar" style="background:#fff;border-radius:8px;padding:10px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.1);max-width:750px;margin:0 auto 8px;">
+  <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:#333;">
+    <span style="font-weight:600;">🧪 自动审核</span>
+    <span style="font-size:12px;color:#999;">（测试用，开启后注册自动通过）</span>
+    <span style="flex:1;"></span>
+    <span id="autoApproveStatus" style="font-size:12px;color:#999;margin-right:4px;">已关闭</span>
+    <label class="toggle-switch">
+      <input type="checkbox" id="autoApproveSwitch" onchange="toggleAutoApprove()">
+      <span class="toggle-slider"></span>
+    </label>
+  </label>
 </div>
 
 <!-- ===== 主选项卡 ===== -->
@@ -242,6 +263,7 @@ function switchMainTab(tab) {
 document.addEventListener('DOMContentLoaded', function() {
   loadStats();
   loadSystemName();
+  loadAutoApprove();
   loadUsers();
 });
 
@@ -431,6 +453,41 @@ function approveUser(id, status) {
       alert(d.error || '操作失败');
     }
   }).catch(function(){alert('操作失败')});
+}
+
+// ===== 自动审核 =====
+function loadAutoApprove() {
+  fetch(API_HOST + '/admin/auto-approve', {
+    headers: {'Authorization': 'Bearer ' + token}
+  }).then(function(r){return r.json()}).then(function(d) {
+    var sw = document.getElementById('autoApproveSwitch');
+    var label = document.getElementById('autoApproveStatus');
+    sw.checked = d.auto_approve;
+    label.textContent = d.auto_approve ? '已开启' : '已关闭';
+    label.style.color = d.auto_approve ? '#52c41a' : '#999';
+  }).catch(function(){console.error('load auto-approve error')});
+}
+
+function toggleAutoApprove() {
+  var sw = document.getElementById('autoApproveSwitch');
+  var val = sw.checked;
+  fetch(API_HOST + '/admin/auto-approve', {
+    method: 'PUT',
+    headers: {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'},
+    body: JSON.stringify({auto_approve: val})
+  }).then(function(r){return r.json()}).then(function(d) {
+    if (d.message) {
+      var label = document.getElementById('autoApproveStatus');
+      label.textContent = val ? '已开启' : '已关闭';
+      label.style.color = val ? '#52c41a' : '#999';
+    } else {
+      sw.checked = !val;
+      alert(d.error || '操作失败');
+    }
+  }).catch(function(){
+    sw.checked = !val;
+    alert('操作失败');
+  });
 }
 </script>
 </body>

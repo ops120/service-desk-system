@@ -135,6 +135,10 @@ app.post('/api/auth/register', registerLimiter, (req, res) => {
     const existing = queries.findUserByUsername(username);
     if (existing) return res.status(409).json({ error: '用户名已存在' });
 
+    // 检查自动审核开关
+    const autoApprove = queries.getAutoApprove();
+    const initialStatus = autoApprove ? 'approved' : 'pending';
+
     const result = queries.insertUser({
       username,
       password: password, // 明文传，由 database.js 哈希
@@ -143,10 +147,12 @@ app.post('/api/auth/register', registerLimiter, (req, res) => {
       phone,
       employee_id: employee_id || '',
       property_certificate: property_certificate || '',
-      employee_certificate: employee_certificate || ''
+      employee_certificate: employee_certificate || '',
+      status: initialStatus
     });
 
-    res.status(201).json({ message: '注册成功，请等待管理员审核', user: { id: result.lastInsertRowid, username, role: validRole, unit_number: unit_number || '' } });
+    const msg = autoApprove ? '注册成功，已自动通过审核' : '注册成功，请等待管理员审核';
+    res.status(201).json({ message: msg, user: { id: result.lastInsertRowid, username, role: validRole, unit_number: unit_number || '' } });
     audit('USER_REGISTER', username, { role: validRole, unit_number, phone: phone ? '***' : '' }, req.ip);
   } catch (err) {
     console.error('Register error:', err);
@@ -382,6 +388,32 @@ app.put('/api/admin/system-name', authenticate, requireAdmin, (req, res) => {
     res.json({ message: '系统名称已更新', system_name: system_name.trim() });
   } catch (err) {
     console.error('Set system name error:', err);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// 获取自动审核开关状态
+app.get('/api/admin/auto-approve', authenticate, requireAdmin, (req, res) => {
+  try {
+    res.json({ auto_approve: queries.getAutoApprove() });
+  } catch (err) {
+    console.error('Get auto-approve error:', err);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// 设置自动审核开关
+app.put('/api/admin/auto-approve', authenticate, requireAdmin, (req, res) => {
+  try {
+    const { auto_approve } = req.body;
+    if (typeof auto_approve !== 'boolean') {
+      return res.status(400).json({ error: '参数必须是布尔值' });
+    }
+    queries.setAutoApprove(auto_approve);
+    audit('AUTO_APPROVE_CHANGE', req.user.id, { auto_approve }, req.ip);
+    res.json({ message: auto_approve ? '自动审核已开启' : '自动审核已关闭', auto_approve });
+  } catch (err) {
+    console.error('Set auto-approve error:', err);
     res.status(500).json({ error: '服务器错误' });
   }
 });

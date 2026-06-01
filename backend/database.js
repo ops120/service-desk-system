@@ -313,7 +313,7 @@ const queries = {
     // 先用 db.exec 执行 INSERT（sql.js 对 db.run 的 last_insert_rowid 支持不稳定）
     db.exec(`
       INSERT INTO users (username, password, role, unit_number, phone, employee_id, property_certificate, employee_certificate, status)
-      VALUES ('${params.username}', '${hash}', '${params.role || 'owner'}', '${params.unit_number || ''}', '${params.phone || ''}', '${params.employee_id || ''}', '${params.property_certificate || ''}', '${params.employee_certificate || ''}', 'pending')
+      VALUES ('${params.username}', '${hash}', '${params.role || 'owner'}', '${params.unit_number || ''}', '${params.phone || ''}', '${params.employee_id || ''}', '${params.property_certificate || ''}', '${params.employee_certificate || ''}', '${params.status || 'pending'}')
     `);
     const result = db.exec('SELECT last_insert_rowid() as id');
     const lastId = result.length > 0 && result[0].values.length > 0 ? result[0].values[0][0] : null;
@@ -516,6 +516,19 @@ const queries = {
 
   setSystemName(name) {
     db.run("UPDATE system_config SET value = ? WHERE key = 'system_name'", [name]);
+    saveDB();
+  },
+
+  // ===== 自动审核（测试用） =====
+  getAutoApprove() {
+    const result = db.exec("SELECT value FROM system_config WHERE key = 'auto_approve'");
+    if (result.length === 0 || result[0].values.length === 0) return false;
+    return result[0].values[0][0] === 'true';
+  },
+
+  setAutoApprove(val) {
+    // 使用 INSERT OR REPLACE 确保存在
+    db.run("INSERT OR REPLACE INTO system_config (key, value) VALUES ('auto_approve', ?)", [val ? 'true' : 'false']);
     saveDB();
   },
 
