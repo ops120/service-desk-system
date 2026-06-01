@@ -25,7 +25,12 @@ const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
-app.use('/uploads', express.static(uploadsDir));
+// 图片访问鉴权路由（需登录）
+app.get('/uploads/:filename', authenticate, (req, res) => {
+  const filePath = path.join(uploadsDir, req.params.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
+  res.sendFile(filePath);
+});
 
 // Serve frontend static files
 const frontendDir = path.join(__dirname, '..', 'frontend');
