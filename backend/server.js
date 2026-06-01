@@ -102,13 +102,29 @@ const getWatermarkUsername = (req) => {
 // 降级策略：处理失败时保留原文件，不阻塞上传
 const watermarkImage = async (filePath, username) => {
   try {
-    const fullPath = path.join(__dirname, filePath);
+    const fullPath = path.resolve(__dirname, filePath.replace(/^\//, ''));
     const ext = path.extname(fullPath).toLowerCase();
 
     // GIF 不处理
     if (ext === '.gif') return;
 
-    const img = await Jimp.read(fullPath);
+    // 等待文件落盘（multer cb 后 write 可能还未完成）
+    let buffer;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        buffer = await fs.promises.readFile(fullPath);
+        break;
+      } catch (err) {
+        if (err.code === 'ENOENT' && attempt < 4) {
+          await new Promise(r => setTimeout(r, 100));
+          continue;
+        }
+        throw err;
+      }
+    }
+    if (!buffer) return;
+
+    const img = await Jimp.read(buffer);
     const imgW = img.width;
     const imgH = img.height;
 
